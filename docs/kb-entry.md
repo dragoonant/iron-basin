@@ -1,6 +1,6 @@
-# iron-basin: living entry (draft for `3d-game-generation/projects/iron-basin.md`)
+# iron-basin: living entry
 
-Repo: an orphan branch of `dragoonant/ex-kom-calamity` pushed as `claude/dazzling-lovelace-qzzxdj` until the owner creates `dragoonant/iron-basin` (PLAN D2). Started 2026-11-24 from a claude.ai cloud session. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR. **Updated at the end of every milestone** (rules.md rule 19).
+Repo `dragoonant/iron-basin` (created by the owner 2026-11-24; the first two commits moved over from an orphan branch of ex-kom-calamity, PLAN D2). Started 2026-11-24 from a claude.ai cloud session. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR. **Updated at the end of every milestone** (rules.md rule 19).
 
 ## 1. Overview
 - An original turn-based walker-tactics game, spiritual successor to the 1990s walker-tactics games (Square's Front Mission series), recommended by Claude after a survey of all the owner's repos (mechs were the largest unfinished thread) and chosen by the owner by asking for concepts, then "Build out the first level" (2026-11-24, PLAN D1).

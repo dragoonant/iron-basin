@@ -6,7 +6,7 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | Id | Decision | Date | Source |
 |---|---|---|---|
 | D1 | Next spiritual successor: a mech squad tactics game in the Front Mission mould (Claude's recommendation; the owner asked for concepts, then for the first level) | 2026-11-24 | owner: "Do a run of concept images of what you think our Front Mission game would look like"; "Build out the first level" |
-| D2 | Home: **a new repo the owner creates** (suggested `dragoonant/iron-basin`). Until it exists, the game lives on an orphan branch of `dragoonant/ex-kom-calamity` (pushed as the session branch `claude/dazzling-lovelace-qzzxdj`) holding only this game; the history moves over unchanged | 2026-11-24 | question batch 1 |
+| D2 | Home: **`dragoonant/iron-basin`**, created by the owner ("iron basin repo is up", 2026-11-24). The first two commits were made on an orphan branch of `dragoonant/ex-kom-calamity` (`claude/dazzling-lovelace-qzzxdj`) and moved over unchanged | 2026-11-24 | question batch 1; owner 2026-11-24 |
 | D3 | Walkers are **modular part kits built in code** (torso, arms, legs, backpack, hand weapons) in the concept's design language, with generated paint textures, so lost and swapped parts show on the model. Hunyuan may replace pieces later | 2026-11-24 | batch 1 (GPU PC not reachable from the cloud session; no remote image-to-3D service) |
 | D4 | Look **locked**: our walker `docs/concept/run1/02-line-walker.jpg` (slate blue-grey, sloped armoured hull holding the cockpit, no head or face, one off-centre camera turret, two arms with hands, thick legs with knee skirts, bolted panels, safety-orange shoulder band); the enemy `docs/concept/run1/06-enemy-walker.jpg` (forward-raked wedge hull, red sensor slit, sand and olive two-tone camouflage, ram fist) | 2026-11-24 | batch 1 |
 | D5 | Battles: **side phases on a square grid**; each walker moves and acts once per phase; hits land on a part (body, left arm, right arm, legs) with its own HP; direct fire draws a counter | 2026-11-24 | batch 1 |
@@ -37,5 +37,5 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M1 | Spec `docs/spec/10-rules.md`, data, engine, AI, sim, bench, fuzz | done 2026-11-24 |
 | M2 | Client: board, part-kit walkers, terrain, HUD, close-ups, save | done 2026-11-24 |
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
-| M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry drafted in `docs/kb-entry.md`, push to the KB awaits the owner) |
+| M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
 | M5 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow); pilot levels; fog of war | next |

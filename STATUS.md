@@ -1,6 +1,6 @@
 # IRON BASIN — STATUS (rewrite, never append)
 
-**2026-11-24: level 1 is playable end to end.** Title → voiced briefing → Marrow Yard battle → debrief with salvage → hangar → contract 2 stub. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR (KB rule 28). Home is an orphan branch of `dragoonant/ex-kom-calamity`, pushed as `claude/dazzling-lovelace-qzzxdj`, until the owner creates `dragoonant/iron-basin` (PLAN D2).
+**2026-11-24: level 1 is playable end to end.** Title → voiced briefing → Marrow Yard battle → debrief with salvage → hangar → contract 2 stub. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR (KB rule 28). Home: `dragoonant/iron-basin` (PLAN D2).
 
 ## What is in
 | Area | State | Where |
@@ -25,4 +25,4 @@
 - Salvage is generous (about 21 items a win): revisit with contract 2's economy.
 - No fog of war, no facing (PLAN Q3, Q4). Pilots do not level up yet.
 - Phone landscape is laid out but only checked at 844×390 by the rule-24 test.
-- KB entry drafted at `docs/kb-entry.md`; not yet pushed to `3d-game-generation` (needs the owner's go to push there).
+- KB entry: `3d-game-generation/projects/iron-basin.md` (pushed 2026-11-24); `docs/kb-entry.md` is the local copy.
