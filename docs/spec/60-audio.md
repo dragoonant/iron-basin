@@ -181,3 +181,15 @@ Decoded with ffmpeg `astats`. Peak/RMS in dB, crest = peak - RMS. Decoded mp3 pe
 - Every gunshot and impact take that was asked for a crest factor of 8 or more passed (see table); crest checks per id are in `tools/audio/generate.mjs` and the index step prints a FLAG line when a file fails.
 
 Not verified by ear.
+
+## Credit use (ElevenLabs usage API, read 2026-11-24)
+Account: Starter, 13,059 of 40,199 credits used this cycle (resets 2026-12-17).
+
+| Product | Last 120 days | This cycle | IRON BASIN (2026-11-24) | What IRON BASIN got for it |
+|---|---|---|---|---|
+| Music | 78,642 (76%) | 10,163 | 3,800 (66%) | 5 tracks, 294 s: about 13 credits a second, 1,550 for the 2-minute battle loop |
+| Sound effects | 15,711 (15%) | 2,435 | 1,506 (26%) | 51 takes, 149 s: about 10 credits a second |
+| Text to speech | 5,138 (5%) | 461 | 461 (8%) | 26 lines with premade voices on `eleven_multilingual_v2` |
+| Voice design | 3,330 (3%) | 0 | 0 | none: the cast used stock library voices |
+
+The voices were the cheapest part of the audio. Stellar Derelict's cast, by contrast, was made with Voice Design (`eleven_ttv_v3`, 3,330 credits on 2026-11-15) and spoken on `eleven_v3`. The biggest single spends in the account are music days: 2026-10-05 (11,851), 2026-11-15 (15,650) and 2026-10-08 (9,976).
