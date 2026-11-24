@@ -4,6 +4,7 @@ interface IndexShape {
   music: Record<string, { file: string; gain: number; loop: boolean; seconds: number }>;
   sfx: Record<string, { file: string; gain: number; seconds: number }[]>;
   voice: Record<string, { file: string; gain: number; seconds: number; speaker: string; text: string }>;
+  cast?: Record<string, { file: string; gain: number; seconds: number; speaker: string; text: string }>;
 }
 
 const main = document.getElementById('main') as HTMLElement;
@@ -89,6 +90,15 @@ async function build(): Promise<void> {
   const voice = section('Voice');
   for (const [id, v] of Object.entries(idx.voice)) {
     voice.append(row(`${id}  (${v.speaker})`, `${v.seconds.toFixed(1)} s  gain ${v.gain}`, () => { void audio.voice(id); }, v.text));
+  }
+  // Voice casting candidates from the local Audio Studio (tools/audio/local-voices.mjs cast): pick one per character in tools/audio/cast.json.
+  if (idx.cast && Object.keys(idx.cast).length) {
+    const cast = section('Voice casting (pick one per character in tools/audio/cast.json)');
+    for (const [id, v] of Object.entries(idx.cast)) {
+      const player = new Audio(v.file);
+      player.volume = Math.min(1, v.gain);
+      cast.append(row(id, `${v.seconds.toFixed(1)} s`, () => { player.currentTime = 0; void player.play(); }, v.text));
+    }
   }
 }
 

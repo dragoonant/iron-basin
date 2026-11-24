@@ -13,6 +13,7 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | D6 | First level = **briefing, battle, hangar**: voiced briefing over a map, the Marrow Yard battle (4 of ours vs 6), debrief with salvage, the hangar to swap parts, then a stub for contract 2 | 2026-11-24 | batch 2 |
 | D7 | Spend: **use what's needed, frugally**: pilot three before every batch; about 40-60 images (FLUX through Hugging Face); ElevenLabs for 3-4 music tracks, about 25 sounds and short voiced lines inside the Starter credits left (about 33k on 2026-11-24); Web Audio fills any gap | 2026-11-24 | batch 2 |
 | D8 | Working title **IRON BASIN** (placeholder until the owner picks a final one) | 2026-11-24 | batch 2 |
+| D10 | Voices: recast on EVILAEGIS with the local Audio Studio (Qwen voice design, then voice clone per character), not ElevenLabs. Brief: `HANDOFF-GPU.md` | 2026-11-24 | owner: "I wasn't super happy with the voices"; "Can we do all of that on evilaegis?" |
 | D9 | Devices: **desktop and phone landscape**, mouse and touch (KB rules 24-27) | 2026-11-24 | batch 2 |
 
 ## Defaults taken (change any by saying so)

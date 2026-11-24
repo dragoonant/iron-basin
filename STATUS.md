@@ -22,6 +22,7 @@
 `npm run typecheck` | `npm test` (46) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (10: smoke, full contract, attack preview, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact`
 
 ## Known gaps, next
+- **Voices:** the owner is not happy with the stock ElevenLabs voices. A local recast on EVILAEGIS is ready to run: `HANDOFF-GPU.md`, `tools/audio/local-voices.mjs`, `tools/audio/cast.json`.
 - Salvage is generous (about 21 items a win): revisit with contract 2's economy.
 - No fog of war, no facing (PLAN Q3, Q4). Pilots do not level up yet.
 - Phone landscape is laid out but only checked at 844×390 by the rule-24 test.

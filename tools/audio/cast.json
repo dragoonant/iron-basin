@@ -1,0 +1,21 @@
+{
+  "_note": "Voice casting for the local Audio Studio (Qwen3-TTS). `instruct` describes the voice for qwen-design; `sample` is what each candidate says (it becomes the clone reference, so it must be 5-10 s); `pick` is the chosen candidate (1-3), default 1 until the owner chooses by ear on sounds.html (KB rules 9, 20).",
+  "AKSE":    { "name": "Corin Aske, Basin Concord liaison", "pick": 1, "seeds": [11, 12, 13],
+               "instruct": "A man in his fifties, a civil-service officer. Dry, precise, quietly tired; mid-low pitch, clipped consonants, neutral northern European English accent, measured pace with small pauses. Speaks like a radio briefing in a cold command tent. No warmth, no theatre.",
+               "sample": "Captain. The Directorate pushed a recon group into the yard before dawn. We need it open by noon." },
+  "MARLOW":  { "name": "Capt. Ines Marlow", "pick": 1, "seeds": [21, 22, 23],
+               "instruct": "A woman in her late thirties, a veteran mercenary walker pilot and company captain. Low, slightly husky voice, calm and controlled authority, a little weary, never shouting unless hit. Plain, grounded delivery over a cockpit radio.",
+               "sample": "Understood. Varga takes the left track. The rest of you come up the middle with me." },
+  "OKONJO":  { "name": "Dace Okonjo", "pick": 1, "seeds": [31, 32, 33],
+               "instruct": "A big man in his late forties, heavy-walker pilot. Very deep, resonant, unhurried voice with a West African lilt; calm under fire, economical with words, a faint smile in the tone.",
+               "sample": "Okonjo here. Shield is up, mortar is loaded. Tell me where you want it." },
+  "VARGA":   { "name": "Pell Varga", "pick": 1, "seeds": [41, 42, 43],
+               "instruct": "A young man in his early twenties, scout pilot. Light, quick, wry voice with nervous energy; fast pace, cocky but likeable, slight Central European accent.",
+               "sample": "Varga, ready. Sensor mast is up and I can see half the yard. They have no idea." },
+  "HALDANE": { "name": "Ruth 'Hook' Haldane", "pick": 1, "seeds": [51, 52, 53],
+               "instruct": "A woman in her fifties, mechanic and support pilot. Gravelly, smoky low voice, dry deadpan humour, Scottish accent, sounds like she has fixed every machine in the yard twice.",
+               "sample": "Haldane. Make it quick, I have a welding torch in one hand and your leg actuator in the other." },
+  "HALLEN":  { "name": "Maj. Teodric Hallen, Northern Directorate", "pick": 1, "seeds": [61, 62, 63],
+               "instruct": "A man in his forties, an enemy officer. Cold, clipped, contemptuous; hard consonants, a slight Germanic accent, controlled and quiet menace over a crackling radio.",
+               "sample": "Contract dogs. Hold the silos and let them come to us. Nobody fires until I say." }
+}
