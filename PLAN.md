@@ -14,6 +14,10 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | D7 | Spend: **use what's needed, frugally**: pilot three before every batch; about 40-60 images (FLUX through Hugging Face); ElevenLabs for 3-4 music tracks, about 25 sounds and short voiced lines inside the Starter credits left (about 33k on 2026-11-24); Web Audio fills any gap | 2026-11-24 | batch 2 |
 | D8 | Working title **IRON BASIN** (placeholder until the owner picks a final one) | 2026-11-24 | batch 2 |
 | D10 | Voices: recast on EVILAEGIS with the local Audio Studio (Qwen voice design, then voice clone per character), not ElevenLabs. Brief: `HANDOFF-GPU.md` | 2026-11-24 | owner: "I wasn't super happy with the voices"; "Can we do all of that on evilaegis?" |
+| D11 | Combat v2 (`docs/combat-v2.md`): **drive points** replace move-then-act. Each walker spends a per-phase budget on walks, fire modes, maneuvers and pivots, and banks what is left as reserve for reactions. Side phases (D5) stay | 2026-11-25 | owner: "more attacks for each mech. More options, too simplistic right now"; batch 3 |
+| D12 | New attacks come from **weapons and parts**: every weapon gets 2-3 fire modes, and legs, arms, body and packs grant maneuvers, so salvage changes the moveset | 2026-11-25 | batch 3 |
+| D13 | All four signature systems go in: **the field as a weapon** (push, fall, rolling wagons, toppling stacks, smoke), **facing and flanking** (replaces Q4), **reactions** (reserve-paid return fire, overwatch and guard; replace the automatic counter) and **pilot nerve** (Steady/Shaken, signature moves) | 2026-11-25 | batch 3 |
+| D14 | Rebuild **Marrow Yard on v2** first (milestone M5); contract 2 moves to M6 | 2026-11-25 | batch 3 |
 | D9 | Devices: **desktop and phone landscape**, mouse and touch (KB rules 24-27) | 2026-11-24 | batch 2 |
 
 ## Defaults taken (change any by saying so)
@@ -22,13 +26,19 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | Q1 | Stack: the sibling stack (Vite 8, React 19, three 0.187 / R3F 9 / drei 10, zustand 5, TypeScript 7 strict, Vitest 5, Playwright, tsx), configs from ex-kom-calamity |
 | Q2 | Engine contract (KB recipe step 3): pure `step(state, action)` that never throws, `legalActions` never empty, `query.*` owns every number, `view(state, side)`, sfc32 seeded RNG in the state, plain-JSON state, replay hash |
 | Q3 | No fog of war in mission 1 (the genre shows the whole field); `view` exists so fog can come later |
-| Q4 | No facing; height gives +10 to hit and +1 range for direct fire from higher ground |
+| Q4 | ~~No facing~~ superseded by D13 (facing, FAC-1..6). Height still gives +10 to hit and +1 range for direct fire from higher ground |
 | Q5 | Battle close-ups: the camera swings to the attacker and target for each attack, skippable, with a setting to turn them off (our own take on the genre's battle screen) |
 | Q6 | Save (KB rule 22): autosave after every accepted action, at the start of a battle and in the hangar; one slot, key `ib-save`; Continue names the screen, turn and phase |
 | Q7 | Pilots survive a destroyed walker (they eject); permadeath is not in mission 1 |
 | Q8 | Presentation concept: **grease pencil on acetate** (`docs/presentation-concept.md`) |
 | Q9 | Names (all ours, checked against the source series): the Vell Basin, the river Vell, the town of Kerrow, Marrow Yard; our side the **Grey Lantern Company**, hired by the **Basin Concord**; the enemy the **Northern Directorate** |
 | Q10 | Audio: ElevenLabs (connected to this session) instead of the local Audio Studio, which this cloud session cannot reach; "not verified by ear" until the owner listens (KB rule 9) |
+| Q12 | Drive per body: L 5, M 4, H 4; reserve cap 2; each weapon slot fires once a phase *(tune)* |
+| Q13 | Return fire is automatic while reserve is at least 1, with a per-walker hold-fire toggle |
+| Q14 | Nerve 0-10; pilots start at 6-8; Steady at 8 or more, Shaken at 2 or less *(tune)* |
+| Q15 | Marrow Yard keeps its map art; data adds rail lines (x 4, x 11) and container stacks; still 4 against 5 |
+| Q16 | The v1 AI is kept as `simple`, a bench opponent for AI v2 |
+| Q17 | v1 battle saves are discarded with a reason; v1 hangar saves migrate |
 | Q11 | Publish the playable as a private claude.ai Artifact (KB rule 28) and on Pages once the repo exists |
 
 ## Milestones
@@ -39,4 +49,5 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M2 | Client: board, part-kit walkers, terrain, HUD, close-ups, save | done 2026-11-24 |
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
 | M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
-| M5 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow); pilot levels; fog of war | next |
+| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | next (planned 2026-11-25) |
+| M6 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow, a swing bridge); pilot levels; fog of war | after M5 |
