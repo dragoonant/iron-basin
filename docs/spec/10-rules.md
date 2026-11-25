@@ -2,6 +2,8 @@
 
 **The spec is the product** (KB rule 2). Every rule has an id; the engine implements exactly this; tests are named by id (`tests/coverage.test.ts` fails if an id has no test); every number lives in `src/data/*.json`; every ambiguity is a `RULING:` line at the end. Numbers marked *(tune)* change only with a `sim` or `bench:ai` result (KB rule 30).
 
+**Combat v2** (`15-combat-v2.md`) is landing slice by slice and retires TRN-2, TRN-4, WLK-2 (move part), WLK-5, ATK-1..4, ATK-8 and SUP-1 as it goes. Until a slice lands, this file is what the engine does.
+
 ## 0. Engine contract
 - **ARCH-1** `step(state, action)` is pure and never throws: an illegal action returns the same state and one `rejected` event.
 - **ARCH-2** `legalActions(state)` is never empty while the battle runs: `endPhase` is always legal for the side to act.

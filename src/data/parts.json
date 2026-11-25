@@ -6,7 +6,11 @@
       "power": 50,
       "weight": 12,
       "kit": "lantern",
-      "size": "m"
+      "size": "m",
+      "drive": 4,
+      "maneuvers": [
+        "overdrive"
+      ]
     },
     "body-lantern-h": {
       "name": "LANTERN H body",
@@ -14,7 +18,11 @@
       "power": 68,
       "weight": 16,
       "kit": "lantern",
-      "size": "h"
+      "size": "h",
+      "drive": 4,
+      "maneuvers": [
+        "overdrive"
+      ]
     },
     "body-lantern-l": {
       "name": "LANTERN L body",
@@ -22,7 +30,11 @@
       "power": 34,
       "weight": 8,
       "kit": "lantern",
-      "size": "l"
+      "size": "l",
+      "drive": 5,
+      "maneuvers": [
+        "overdrive"
+      ]
     },
     "body-dir-wedge": {
       "name": "WEDGE body",
@@ -30,7 +42,11 @@
       "power": 50,
       "weight": 13,
       "kit": "wedge",
-      "size": "m"
+      "size": "m",
+      "drive": 4,
+      "maneuvers": [
+        "overdrive"
+      ]
     },
     "body-dir-cmd": {
       "name": "WEDGE-C body",
@@ -38,7 +54,11 @@
       "power": 70,
       "weight": 18,
       "kit": "wedge",
-      "size": "h"
+      "size": "h",
+      "drive": 4,
+      "maneuvers": [
+        "overdrive"
+      ]
     }
   },
   "arms": {
@@ -48,7 +68,8 @@
       "acc": 0,
       "weight": 6,
       "kit": "lantern",
-      "size": "m"
+      "size": "m",
+      "maneuvers": []
     },
     "arm-lantern-h": {
       "name": "LANTERN H arm",
@@ -56,7 +77,8 @@
       "acc": -5,
       "weight": 8,
       "kit": "lantern",
-      "size": "h"
+      "size": "h",
+      "maneuvers": []
     },
     "arm-lantern-l": {
       "name": "LANTERN L arm",
@@ -64,7 +86,8 @@
       "acc": 5,
       "weight": 4,
       "kit": "lantern",
-      "size": "l"
+      "size": "l",
+      "maneuvers": []
     },
     "arm-dir": {
       "name": "WEDGE arm",
@@ -72,7 +95,10 @@
       "acc": 0,
       "weight": 7,
       "kit": "wedge",
-      "size": "m"
+      "size": "m",
+      "maneuvers": [
+        "ramjab"
+      ]
     },
     "arm-dir-cmd": {
       "name": "WEDGE-C arm",
@@ -80,7 +106,10 @@
       "acc": 5,
       "weight": 8,
       "kit": "wedge",
-      "size": "h"
+      "size": "h",
+      "maneuvers": [
+        "ramjab"
+      ]
     }
   },
   "legs": {
@@ -91,7 +120,11 @@
       "evade": 10,
       "weight": 10,
       "kit": "lantern",
-      "size": "m"
+      "size": "m",
+      "maneuvers": [
+        "kick",
+        "brace"
+      ]
     },
     "legs-lantern-h": {
       "name": "LANTERN H legs",
@@ -100,7 +133,11 @@
       "evade": 5,
       "weight": 14,
       "kit": "lantern",
-      "size": "h"
+      "size": "h",
+      "maneuvers": [
+        "brace",
+        "plant"
+      ]
     },
     "legs-lantern-l": {
       "name": "LANTERN L legs",
@@ -109,7 +146,11 @@
       "evade": 20,
       "weight": 7,
       "kit": "lantern",
-      "size": "l"
+      "size": "l",
+      "maneuvers": [
+        "dash",
+        "hop"
+      ]
     },
     "legs-dir": {
       "name": "WEDGE legs",
@@ -118,7 +159,11 @@
       "evade": 10,
       "weight": 11,
       "kit": "wedge",
-      "size": "m"
+      "size": "m",
+      "maneuvers": [
+        "kick",
+        "brace"
+      ]
     },
     "legs-dir-cmd": {
       "name": "WEDGE-C legs",
@@ -127,39 +172,55 @@
       "evade": 5,
       "weight": 15,
       "kit": "wedge",
-      "size": "h"
+      "size": "h",
+      "maneuvers": [
+        "brace",
+        "plant"
+      ]
     }
   },
   "packs": {
     "pack-none": {
       "name": "No pack",
       "weight": 0,
-      "kind": "none"
+      "kind": "none",
+      "maneuvers": []
     },
     "pack-mortar": {
       "name": "M-80 mortar pack",
       "weight": 7,
       "kind": "weapon",
-      "weapon": "w-mortar"
+      "weapon": "w-mortar",
+      "maneuvers": [],
+      "cookOff": true
     },
     "pack-missile": {
       "name": "Twin missile box",
       "weight": 6,
       "kind": "weapon",
-      "weapon": "w-missile"
+      "weapon": "w-missile",
+      "maneuvers": [],
+      "cookOff": true
     },
     "pack-sensor": {
       "name": "Sensor mast",
       "weight": 3,
       "kind": "sensor",
-      "sensorRange": 7
+      "sensorRange": 7,
+      "maneuvers": [
+        "mark"
+      ]
     },
     "pack-repair": {
       "name": "Repair crane",
       "weight": 5,
       "kind": "repair",
       "charges": 3,
-      "heal": 45
+      "heal": 45,
+      "maneuvers": [
+        "patch",
+        "tow"
+      ]
     }
   },
   "weapons": {
@@ -172,7 +233,32 @@
       "dmg": 24,
       "acc": 66,
       "weight": 6,
-      "sfx": "autocannon"
+      "sfx": "autocannon",
+      "modes": [
+        {
+          "id": "burst",
+          "name": "Burst",
+          "dp": 2,
+          "shots": 3
+        },
+        {
+          "id": "aimed",
+          "name": "Aimed pair",
+          "dp": 3,
+          "shots": 2,
+          "acc": 15,
+          "call": true
+        },
+        {
+          "id": "suppress",
+          "name": "Suppress",
+          "dp": 2,
+          "shots": 4,
+          "acc": -25,
+          "dmg": 0.5,
+          "effect": "pin"
+        }
+      ]
     },
     "w-carbine": {
       "name": "20 mm carbine",
@@ -183,7 +269,30 @@
       "dmg": 20,
       "acc": 74,
       "weight": 4,
-      "sfx": "carbine"
+      "sfx": "carbine",
+      "modes": [
+        {
+          "id": "snap",
+          "name": "Snap",
+          "dp": 1,
+          "shots": 1,
+          "acc": -10
+        },
+        {
+          "id": "double",
+          "name": "Double tap",
+          "dp": 2,
+          "shots": 2
+        },
+        {
+          "id": "lane",
+          "name": "Cover lane",
+          "dp": 1,
+          "shots": 0,
+          "effect": "overwatch",
+          "target": "tile"
+        }
+      ]
     },
     "w-rifle": {
       "name": "Long rifle",
@@ -194,7 +303,25 @@
       "dmg": 50,
       "acc": 78,
       "weight": 6,
-      "sfx": "rifle"
+      "sfx": "rifle",
+      "modes": [
+        {
+          "id": "shot",
+          "name": "Shot",
+          "dp": 2,
+          "shots": 1
+        },
+        {
+          "id": "braced",
+          "name": "Braced shot",
+          "dp": 3,
+          "shots": 1,
+          "acc": 20,
+          "dmg": 1.25,
+          "call": true,
+          "needs": "still"
+        }
+      ]
     },
     "w-ramfist": {
       "name": "Ram fist",
@@ -205,7 +332,32 @@
       "dmg": 60,
       "acc": 82,
       "weight": 5,
-      "sfx": "ram-hit"
+      "sfx": "ram-hit",
+      "modes": [
+        {
+          "id": "strike",
+          "name": "Strike",
+          "dp": 2,
+          "shots": 1
+        },
+        {
+          "id": "shove",
+          "name": "Shove",
+          "dp": 1,
+          "shots": 1,
+          "dmg": 0.3,
+          "effect": "push"
+        },
+        {
+          "id": "drive",
+          "name": "Drive-through",
+          "dp": 3,
+          "shots": 1,
+          "dmg": 1.5,
+          "effect": "knockdown",
+          "needs": "charge"
+        }
+      ]
     },
     "w-shield": {
       "name": "Riveted shield",
@@ -216,7 +368,29 @@
       "dmg": 0,
       "acc": 0,
       "weight": 6,
-      "guard": 35
+      "guard": 35,
+      "modes": [
+        {
+          "id": "guard",
+          "name": "Guard",
+          "dp": 1,
+          "shots": 0,
+          "effect": "guard",
+          "target": "ally"
+        },
+        {
+          "id": "bash",
+          "name": "Bash",
+          "dp": 1,
+          "shots": 1,
+          "class": "melee",
+          "min": 1,
+          "max": 1,
+          "baseDmg": 18,
+          "baseAcc": 75,
+          "effect": "stagger"
+        }
+      ]
     },
     "w-mortar": {
       "name": "M-80 mortar",
@@ -229,7 +403,23 @@
       "weight": 0,
       "ammo": 3,
       "splash": 15,
-      "sfx": "mortar-launch"
+      "sfx": "mortar-launch",
+      "modes": [
+        {
+          "id": "he",
+          "name": "High explosive",
+          "dp": 2,
+          "shots": 1
+        },
+        {
+          "id": "smoke",
+          "name": "Smoke",
+          "dp": 2,
+          "shots": 0,
+          "effect": "smoke",
+          "target": "tile"
+        }
+      ]
     },
     "w-missile": {
       "name": "Twin missiles",
@@ -241,7 +431,175 @@
       "acc": 72,
       "weight": 0,
       "ammo": 2,
-      "sfx": "missile-launch"
+      "sfx": "missile-launch",
+      "modes": [
+        {
+          "id": "salvo",
+          "name": "Salvo",
+          "dp": 2,
+          "shots": 2
+        },
+        {
+          "id": "tagged",
+          "name": "Tagged salvo",
+          "dp": 2,
+          "shots": 2,
+          "acc": 25,
+          "needs": "marked",
+          "ignoreCover": true
+        }
+      ]
+    }
+  },
+  "universal": [
+    "pivot",
+    "shunt",
+    "grab",
+    "throw",
+    "breakFree"
+  ],
+  "maneuvers": {
+    "pivot": {
+      "name": "Pivot",
+      "dp": 1,
+      "kind": "self"
+    },
+    "shunt": {
+      "name": "Shunt wagon",
+      "dp": 2,
+      "kind": "field"
+    },
+    "grab": {
+      "name": "Grab",
+      "dp": 1,
+      "kind": "attack",
+      "class": "melee",
+      "min": 1,
+      "max": 1,
+      "baseDmg": 0,
+      "baseAcc": 70,
+      "effect": "grab",
+      "needs": "emptyHand"
+    },
+    "throw": {
+      "name": "Throw rubble",
+      "dp": 2,
+      "kind": "attack",
+      "class": "direct",
+      "min": 2,
+      "max": 4,
+      "baseDmg": 30,
+      "baseAcc": 60,
+      "needs": "emptyHand+rubble"
+    },
+    "breakFree": {
+      "name": "Break free",
+      "dp": 2,
+      "kind": "self",
+      "needs": "grabbed"
+    },
+    "overdrive": {
+      "name": "Overdrive",
+      "dp": 0,
+      "nerve": 3,
+      "kind": "self",
+      "gain": 2,
+      "strain": 10
+    },
+    "dash": {
+      "name": "Dash",
+      "dp": 1,
+      "nerve": 1,
+      "kind": "walk",
+      "moveBonus": 3
+    },
+    "hop": {
+      "name": "Hop",
+      "dp": 0,
+      "kind": "trait"
+    },
+    "kick": {
+      "name": "Kick",
+      "dp": 1,
+      "kind": "attack",
+      "class": "melee",
+      "min": 1,
+      "max": 1,
+      "baseDmg": 15,
+      "baseAcc": 80,
+      "call": "legs",
+      "effect": "push"
+    },
+    "brace": {
+      "name": "Brace",
+      "dp": 1,
+      "kind": "stance",
+      "evade": -10
+    },
+    "plant": {
+      "name": "Plant",
+      "dp": 1,
+      "kind": "stance"
+    },
+    "ramjab": {
+      "name": "Ram jab",
+      "dp": 1,
+      "kind": "attack",
+      "class": "melee",
+      "min": 1,
+      "max": 1,
+      "baseDmg": 20,
+      "baseAcc": 80,
+      "effect": "push",
+      "needs": "arm"
+    },
+    "mark": {
+      "name": "Mark",
+      "dp": 1,
+      "kind": "support"
+    },
+    "patch": {
+      "name": "Patch",
+      "dp": 2,
+      "kind": "support"
+    },
+    "tow": {
+      "name": "Tow",
+      "dp": 1,
+      "kind": "support"
+    },
+    "call-the-line": {
+      "name": "Call the line",
+      "dp": 1,
+      "nerve": 4,
+      "kind": "signature"
+    },
+    "shoulder-to-shoulder": {
+      "name": "Shoulder to shoulder",
+      "dp": 1,
+      "nerve": 4,
+      "kind": "signature"
+    },
+    "ghost-step": {
+      "name": "Ghost step",
+      "dp": 0,
+      "nerve": 4,
+      "kind": "signature"
+    },
+    "hot-patch": {
+      "name": "Hot patch",
+      "dp": 2,
+      "nerve": 4,
+      "kind": "signature",
+      "range": 2,
+      "nerveGift": 2
+    },
+    "drill-tempo": {
+      "name": "Drill tempo",
+      "dp": 1,
+      "nerve": 4,
+      "kind": "signature",
+      "gain": 1
     }
   }
 }

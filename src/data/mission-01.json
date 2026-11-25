@@ -83,6 +83,66 @@
   "....=......=..",
   "....=......=.."
  ],
+ "rails": [
+  {
+   "x": 4,
+   "axis": "ns"
+  },
+  {
+   "x": 11,
+   "axis": "ns"
+  }
+ ],
+ "stacks": [
+  [
+   7,
+   0
+  ],
+  [
+   8,
+   0
+  ],
+  [
+   7,
+   1
+  ],
+  [
+   8,
+   1
+  ],
+  [
+   2,
+   7
+  ],
+  [
+   3,
+   7
+  ],
+  [
+   2,
+   8
+  ],
+  [
+   3,
+   8
+  ],
+  [
+   7,
+   13
+  ],
+  [
+   8,
+   13
+  ],
+  [
+   7,
+   14
+  ],
+  [
+   8,
+   14
+  ]
+ ],
  "units": [
   {
    "id": "marlow",
@@ -98,7 +158,8 @@
     "pack": "pack-none",
     "wL": "w-carbine",
     "wR": "w-autocannon"
-   }
+   },
+   "facing": "N"
   },
   {
    "id": "okonjo",
@@ -114,7 +175,8 @@
     "pack": "pack-mortar",
     "wL": "w-shield",
     "wR": "w-autocannon"
-   }
+   },
+   "facing": "N"
   },
   {
    "id": "varga",
@@ -130,7 +192,8 @@
     "pack": "pack-sensor",
     "wL": null,
     "wR": "w-carbine"
-   }
+   },
+   "facing": "N"
   },
   {
    "id": "haldane",
@@ -146,7 +209,8 @@
     "pack": "pack-repair",
     "wL": null,
     "wR": "w-carbine"
-   }
+   },
+   "facing": "N"
   },
   {
    "id": "hallen",
@@ -163,7 +227,8 @@
     "pack": "pack-missile",
     "wL": "w-ramfist",
     "wR": "w-rifle"
-   }
+   },
+   "facing": "S"
   },
   {
    "id": "dir-1",
@@ -180,7 +245,8 @@
     "pack": "pack-mortar",
     "wL": null,
     "wR": "w-carbine"
-   }
+   },
+   "facing": "S"
   },
   {
    "id": "dir-2",
@@ -197,7 +263,8 @@
     "pack": "pack-none",
     "wL": null,
     "wR": "w-rifle"
-   }
+   },
+   "facing": "S"
   },
   {
    "id": "dir-4",
@@ -214,7 +281,8 @@
     "pack": "pack-none",
     "wL": "w-ramfist",
     "wR": "w-carbine"
-   }
+   },
+   "facing": "S"
   },
   {
    "id": "dir-5",
@@ -231,7 +299,8 @@
     "pack": "pack-none",
     "wL": "w-ramfist",
     "wR": "w-carbine"
-   }
+   },
+   "facing": "S"
   }
  ]
 }

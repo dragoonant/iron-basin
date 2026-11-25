@@ -6,7 +6,7 @@
 
 **The one-line pitch:** *every walker has a budget of drive to spend each phase, and what it can spend it on comes from the parts bolted to it, the ground it stands on and the nerve of the person inside.*
 
-Status: **plan**. Nothing here is in the engine yet. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
+Status: **slice 5a done** (2026-11-25): the exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. The engine still runs spec 10 until 5b. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
 
 ---
 
@@ -33,7 +33,7 @@ A mode lists `dp`, `shots`, accuracy and damage modifiers and an effect. Data mo
 | | **Suppress** | 2 | 4 shots at -25 for ×0.5 damage. Even one hit **pins** the target (-1 drive and -10 to hit in its next phase) and costs it 1 nerve. |
 | 20 mm carbine | **Snap** | 1 | 1 shot at -10. Cheap, so it is also the usual reaction shot. |
 | | **Double tap** | 2 | 2 shots. |
-| | **Cover lane** | 2 | No shot now: sets **overwatch** on a line of tiles (RCT-3). |
+| | **Cover lane** | 1 | No shot now: sets **overwatch** on a line of tiles (RCT-3). The shot later costs 1 reserve. |
 | Long rifle | **Shot** | 2 | 1 shot. |
 | | **Braced shot** | 3 | Only if the walker has not walked this phase: +20, ×1.25 damage, call a part. |
 | Ram fist | **Strike** | 2 | 1 hit (today's attack). |
@@ -130,8 +130,8 @@ Nerve is how the pilots show up on the field, not only in the briefing. Pilot le
 ## 9. Build order (M5, each slice ends with all gates green and a playable build)
 | Slice | What | Rule ids | Done when |
 |---|---|---|---|
-| **5a** | Spec and data: rewrite `10-rules.md` sections 3-6, add DRV, FAC, RCT, FLD, NRV with rulings. Add `modes` and maneuvers to `parts.json`, `drive` to bodies, `nerve` to pilots, `rail` and `stack` to the mission. State `v: 2` | all | `validate:data` checks every mode and maneuver; coverage test lists the new ids |
-| **5b** | Core loop: drive, walks, fire modes, facing and arcs, backpack hits, undo | DRV, FAC, the mode rows of ATK | `rules.test` per id; `action-fuzz` 0 violations; HUD order list with DP costs |
+| **5a** ✓ | Spec and data: `docs/spec/15-combat-v2.md` (DRV, HIT, MOD, FAC, MAN, RCT, FLD, NRV with rulings, and which spec 10 ids each slice retires). `modes` on every weapon, `maneuvers` on every part, `universal` and `maneuvers` in `parts.json`, `drive` on bodies, `nerve` and `signature` on pilots, `facing`, `rails` and `stacks` in the mission | all | done 2026-11-25: `validate:data` checks every mode and maneuver; `tests/v2.test.ts` holds a pending test per id and the coverage test checks it |
+| **5b** | Core loop: state `v: 2`, drive, walks, fire modes, facing and arcs, backpack hits, undo; retire TRN-2, TRN-4, ATK-1..4 and WLK-5 from spec 10 | DRV, HIT, MOD, FAC | `rules.test` per id; `action-fuzz` 0 violations; HUD order list with DP costs |
 | **5c** | Maneuvers and the field: push, fall, collision, knockdown, grab, wagons, topple, smoke | FLD, the maneuver rows | presenter beats for each; e2e: kick a wagon down line x 4 |
 | **5d** | Reactions: reserve, return fire, overwatch mid-walk, guard, brace, hold fire | RCT | the old ATK-8 tests are ported; overwatch interrupts a walk in a test |
 | **5e** | Nerve and signatures | NRV | the nerve gauge and signatures show in the HUD |

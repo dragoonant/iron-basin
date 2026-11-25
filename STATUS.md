@@ -18,11 +18,11 @@
 | Art | 22 FLUX images (6 portraits, 5 backdrops, sky, 10 tiling textures) + concept run 1 | `public/art/`, `docs/spec/70-art.md` |
 | Audio | 5 music tracks, 28 sounds, 25 voice lines (ElevenLabs); not verified by ear | `public/audio/`, `docs/spec/60-audio.md`, `sounds.html` |
 
-## Gates (all green 2026-11-24)
-`npm run typecheck` | `npm test` (46) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (10: smoke, full contract, attack preview, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact`
+## Gates (all green 2026-11-25)
+`npm run typecheck` | `npm test` (47, plus 62 pending v2 ids) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (10: smoke, full contract, attack preview, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact`
 
 ## Known gaps, next
-- **Combat v2 is planned, not built** (owner 2026-11-25: too simplistic, too close to the genre). Design and build order: `docs/combat-v2.md`; decisions PLAN D11-D14. Next: slice 5a (spec and data).
+- **Combat v2, slice 5a done (2026-11-25):** the rules are in `docs/spec/15-combat-v2.md` (63 ids, 17 rulings, each id a pending test in `tests/v2.test.ts`). The data carries modes, maneuvers, drive, nerve, facing, rails and stacks, and `validate:data` checks them. The engine still plays v1. Next: slice 5b, the core loop (drive, fire modes, facing). Design: `docs/combat-v2.md`; decisions PLAN D11-D14.
 - **Voices:** the owner is not happy with the stock ElevenLabs voices. A local recast on EVILAEGIS is ready to run: `HANDOFF-GPU.md`, `tools/audio/local-voices.mjs`, `tools/audio/cast.json`.
 - Salvage is generous (about 21 items a win): revisit with contract 2's economy.
 - No fog of war yet (PLAN Q3). Facing comes with v2 (D13). Pilots do not level up yet.

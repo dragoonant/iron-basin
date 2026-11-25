@@ -37,6 +37,13 @@
       "armL": 10,
       "armR": 10,
       "legs": 25
+    },
+    "rear": {
+      "body": 40,
+      "armL": 10,
+      "armR": 10,
+      "legs": 20,
+      "pack": 20
     }
   },
   "objects": {
@@ -79,5 +86,58 @@
   },
   "repairCost": 8,
   "repaintCost": 120,
-  "counterPenalty": 15
+  "counterPenalty": 15,
+  "drive": {
+    "reserveCap": 2,
+    "signatureReserveCap": 3,
+    "startReserve": 1,
+    "walk": 1,
+    "overweight": 1,
+    "pinned": 1,
+    "staggered": 1,
+    "mired": 1,
+    "knockedDown": 2
+  },
+  "facing": {
+    "sideHit": 10,
+    "rearHit": 20,
+    "sideArmFactor": 2
+  },
+  "pinnedHit": 10,
+  "markBonus": 15,
+  "grabEvade": 10,
+  "push": {
+    "collide": 12,
+    "fallLegs": 15
+  },
+  "wagon": {
+    "roll": 6,
+    "dmg": 40,
+    "collide": 12
+  },
+  "stack": {
+    "toppleAt": 30,
+    "dmg": 35,
+    "reach": 2
+  },
+  "smokeRadius": 1,
+  "cookOff": {
+    "self": 30,
+    "adjacent": 15
+  },
+  "nerve": {
+    "max": 10,
+    "steady": 8,
+    "shaken": 2,
+    "steadyHit": 10,
+    "shakenHit": 15,
+    "landHit": 1,
+    "kill": 2,
+    "together": 1,
+    "hitSide": -1,
+    "hitRear": -2,
+    "pinned": -1,
+    "knockedDown": -1,
+    "allyLost": -2
+  }
 }

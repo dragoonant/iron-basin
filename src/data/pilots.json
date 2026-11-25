@@ -4,69 +4,89 @@
     "call": "LANTERN 1",
     "skill": 10,
     "evade": 5,
-    "side": "player"
+    "side": "player",
+    "nerve": 8,
+    "signature": "call-the-line"
   },
   "okonjo": {
     "name": "Dace Okonjo",
     "call": "LANTERN 2",
     "skill": 5,
     "evade": 0,
-    "side": "player"
+    "side": "player",
+    "nerve": 7,
+    "signature": "shoulder-to-shoulder"
   },
   "varga": {
     "name": "Pell Varga",
     "call": "LANTERN 3",
     "skill": 5,
     "evade": 10,
-    "side": "player"
+    "side": "player",
+    "nerve": 6,
+    "signature": "ghost-step"
   },
   "haldane": {
     "name": "Ruth Haldane",
     "call": "LANTERN 4",
     "skill": 0,
     "evade": 0,
-    "side": "player"
+    "side": "player",
+    "nerve": 6,
+    "signature": "hot-patch"
   },
   "hallen": {
     "name": "Maj. Teodric Hallen",
     "call": "DIRECTORATE CMD",
     "skill": 10,
     "evade": 5,
-    "side": "hostile"
+    "side": "hostile",
+    "nerve": 8,
+    "signature": "drill-tempo"
   },
   "dir-1": {
     "name": "Directorate pilot",
     "call": "WEDGE 1",
     "skill": -5,
     "evade": 0,
-    "side": "hostile"
+    "side": "hostile",
+    "nerve": 6,
+    "signature": null
   },
   "dir-2": {
     "name": "Directorate pilot",
     "call": "WEDGE 2",
     "skill": -5,
     "evade": 0,
-    "side": "hostile"
+    "side": "hostile",
+    "nerve": 6,
+    "signature": null
   },
   "dir-3": {
     "name": "Directorate pilot",
     "call": "WEDGE 3",
     "skill": -5,
     "evade": 0,
-    "side": "hostile"
+    "side": "hostile",
+    "nerve": 6,
+    "signature": null
   },
   "dir-4": {
     "name": "Directorate pilot",
     "call": "WEDGE 4",
     "skill": -5,
     "evade": 0,
-    "side": "hostile"
+    "side": "hostile",
+    "nerve": 6,
+    "signature": null
   },
   "dir-5": {
     "name": "Directorate pilot",
     "call": "WEDGE 5",
     "skill": -5,
     "evade": 0,
-    "side": "hostile"
+    "side": "hostile",
+    "nerve": 6,
+    "signature": null
   }
 }
