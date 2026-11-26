@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { chooseAction } from '../ai';
 import { applyResult, newCampaign, deployFrom, type Campaign } from '../engine/campaign';
 import { dirTo, dist } from '../engine/grid';
+import { reachable } from '../engine/grid';
 import { canHitAny, dashRange, faceToward, fireBlock, maneuverBlock, modeIn, modes, pivotCost, shuntDir, unitById, walkRange } from '../engine/query';
 import { legalActions, newBattle, step, view } from '../engine/step';
 import type { Action, BattleState, Facing, GameEvent, HitSlot, WeaponSlot } from '../engine/types';
@@ -167,13 +168,14 @@ export const useGame = create<ClientState>((set, get) => ({
     if (mine && st.maneuverAim) {
       const id = st.maneuverAim;
       if (here?.id === mine.id) { audio.play('cancel'); set({ maneuverAim: null }); return; }
+      if (id === 'ghost-step' && !here && !maneuverBlock(live, mine, id, null, null, { x, y })) { audio.play('confirm'); st.dispatch({ type: 'maneuver', unit: mine.id, id, x, y, facing: faceToward(live, mine, { x, y }) }); set({ maneuverAim: null }); return; }
       if (id === 'dash' && !here && dashRange(live, mine).some((t) => t.x === x && t.y === y)) { audio.play('confirm'); st.dispatch({ type: 'maneuver', unit: mine.id, id, x, y, facing: faceToward(live, mine, { x, y }) }); set({ maneuverAim: null }); return; }
       if (id === 'tow' && here && here.side === 'player') {
         const why = maneuverBlock(live, mine, 'tow', null, here, null);
         if (!why) { audio.play('confirm'); st.maneuver('tow', { target: here.id }); } else { audio.play('cancel'); st.note(why); }
         return;
       }
-      audio.play('cancel'); st.note(id === 'dash' ? 'Out of dash reach.' : 'Tap an adjacent ally.');
+      audio.play('cancel'); st.note(id === 'dash' || id === 'ghost-step' ? 'Out of reach.' : 'Tap an adjacent ally.');
       return;
     }
     // 1. A walk for the selected walker, facing the threat (Face buttons change it).

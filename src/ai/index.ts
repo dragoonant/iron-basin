@@ -3,7 +3,7 @@
 // drive left allows, turn to face the threat, then stand down with the rest as reserve. AI v2 (slice 5f) replaces
 // this with a search over whole sequences.
 import { pack, RULES } from '../engine/data';
-import { ahead, arcOf, dirTo, dist, FACINGS, hasCover, tileAt, unitAt, type Pos } from '../engine/grid';
+import { ahead, arcOf, dirTo, dist, FACINGS, hasCover, hasLos, reachable, tileAt, unitAt, type Pos } from '../engine/grid';
 import {
   callable, canHitAny, cheapestMode, expectedDamage, expectedOf, faceToward, fireBlock, living, maneuverBlock, maneuverRoll, maneuversOf, maxHp,
   modes, patchCost, pivotCost, returnFire, shuntDir, stats, walkRange, weapons, type Roll,
@@ -189,8 +189,42 @@ function markPlan(s: BattleState, u: Unit): Action | null {
   return best && bestN >= 1 ? { type: 'maneuver', unit: u.id, id: 'mark', target: best.id } : null;
 }
 
+/** NRV-5: a signature worth using now, if any. */
+function signaturePlan(s: BattleState, u: Unit, when: 'start' | 'end' | 'afterFire'): Action | null {
+  const sig = maneuversOf(u).find((m) => m.def.kind === 'signature');
+  if (!sig) return null;
+  const allies = living(s, u.side).filter((a) => a.id !== u.id);
+  const near = s.units.some((e) => e.alive && e.side !== u.side && dist(e, u) <= 6);
+  const base = { type: 'maneuver' as const, unit: u.id, id: sig.id };
+  if (when === 'start' && sig.id === 'drill-tempo' && !maneuverBlock(s, u, sig.id, null, null, null) && allies.filter((a) => !a.done && hasLos(s, u, a)).length >= 2) return base;
+  if (when === 'end' && sig.id === 'call-the-line' && !maneuverBlock(s, u, sig.id, null, null, null) && allies.filter((a) => hasLos(s, u, a)).length >= 2 && near) return base;
+  if (when === 'end' && sig.id === 'shoulder-to-shoulder' && !maneuverBlock(s, u, sig.id, null, null, null) && allies.some((a) => dist(a, u) === 1) && near) return base;
+  if (when === 'end' && sig.id === 'hot-patch') {
+    let best: Action | null = null, miss = 30;
+    for (const a of [u, ...allies]) {
+      if (maneuverBlock(s, u, sig.id, null, a, null)) continue;
+      for (const p of ['body', 'legs', 'armR', 'armL'] as const) { const m = maxHp(a, p) - a.hp[p]; if (a.hp[p] > 0 && m > miss) { miss = m; best = { ...base, target: a.id, part: p }; } }
+    }
+    return best;
+  }
+  if (when === 'afterFire' && sig.id === 'ghost-step') {
+    const here = threatAt(s, u, u, u.facing);
+    let best: { at: Pos; v: number } | null = null;
+    for (const r of reachable(s, u, stats(s, u).move)) {
+      if (maneuverBlock(s, u, sig.id, null, null, r)) continue;
+      const f = faceToward(s, u, r);
+      const v = here - threatAt(s, u, r, f) + s.units.reduce((a, e) => a + (e.alive && e.side !== u.side && hasCover(s, e, r) ? 3 : 0), 0);
+      if (v > 10 && (!best || v > best.v)) best = { at: r, v };
+    }
+    return best ? { ...base, x: best.at.x, y: best.at.y, facing: faceToward(s, u, best.at) } : null;
+  }
+  return null;
+}
+
 /** One order for walker `u`. Every branch changes the state, so a phase always ends. */
 function orderFor(s: BattleState, u: Unit, field: number[]): Action {
+  const opening = !u.walked && !u.fired.length ? signaturePlan(s, u, 'start') : null;
+  if (opening) return opening;
   const heal = u.walked ? patchPlan(s, u) : null;
   if (heal) return heal;
   if (!u.walked && u.drive >= RULES.drive.walk) {
@@ -209,6 +243,8 @@ function orderFor(s: BattleState, u: Unit, field: number[]): Action {
   }
   const heal2 = patchPlan(s, u);
   if (heal2) return heal2;
+  const sig = (u.fired.length ? signaturePlan(s, u, 'afterFire') : null) ?? signaturePlan(s, u, 'end');
+  if (sig) return sig;
   // Turn to face the threat: always when one stands behind, otherwise only with drive to spare for reserve.
   const want = faceToward(s, u, u);
   if (want !== u.facing && u.drive >= pivotCost()) {

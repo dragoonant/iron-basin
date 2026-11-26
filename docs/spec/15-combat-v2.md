@@ -8,7 +8,7 @@
 |---|---|---|
 | 5b core loop | DRV-1..9, HIT-1..4, MOD-1..9, FAC-1..6, RCT-1..7, FLD-1, FLD-2, FLD-6, FLD-8, MAN-10 | landed 2026-11-26 |
 | 5c maneuvers and field | MAN-1..9, MAN-11, MAN-12, FLD-3..5, FLD-7 | landed 2026-11-26 |
-| 5e nerve | NRV-1..7 (the Steady and Shaken bands of HIT-2 already count; nerve does not change yet) | |
+| 5e nerve | NRV-1..7 | landed 2026-11-26 |
 
 Reactions moved from 5d into 5b: once drive exists, the automatic counter has to become reserve-paid return fire, and the modes need push, knockdown, smoke, guard and overwatch to mean anything.
 
@@ -138,4 +138,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - RULING: MAN-6 | a push that moves either walker ends the grab; a push that collides does not | the grab is broken by being torn apart, not by a bump.
 - RULING: FLD-5 | the topple runs along the axis the hit came in on; an exact diagonal counts as the x axis | deterministic and previewable.
 - RULING: FLD-5 | topples do not chain | a topple can hit another stack, which takes damage but does not fall that turn; chains are hard to read and to preview.
+- RULING: NRV-2 | a kill by a push, a rolling wagon or a topple credits the walker that caused it | the player who shunts a wagon into a walker earned it.
+- RULING: NRV-2 | a hit taken on a guard's shield costs the guard no nerve, and indirect fire costs no flank nerve | the guard chose the hit; shells have no flank.
+- RULING: NRV-5 | Call the line, for an ally still acting, adds its +1 when that ally stands down | reserve is set at stand down (DRV-6); adding it earlier would be overwritten.
 - RULING: NRV-5 | Drill tempo gives drive now, not next phase | the hostile AI plans phase by phase; a delayed gain would be wasted on walkers that already stood down.

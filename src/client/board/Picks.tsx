@@ -40,6 +40,7 @@ export function marksFor(s: BattleState, selected: string | null, hover: { x: nu
         else for (const a of s.units) if (a.alive && a.side === sel.side && a.id !== sel.id && dist(a, sel) === 1) out.push({ i: idx(a.x, a.y), color: C.aim, scale: 1 });
       }
       if (maneuverAim === 'dash' && !sel.done) for (const r of dashRange(s, sel)) out.push({ i: idx(r.x, r.y), color: C.aim, scale: 0.8 });
+      if (maneuverAim === 'ghost-step' && !sel.done) for (const r of reachable(s, sel, stats(s, sel).move)) out.push({ i: idx(r.x, r.y), color: C.aim, scale: 0.8 });
       if (maneuverAim === 'tow' && !sel.done) for (const a of s.units) if (a.alive && a.side === sel.side && a.id !== sel.id && dist(a, sel) === 1) out.push({ i: idx(a.x, a.y), color: C.aim, scale: 1 });
       const reach = sel.done || mi || maneuverAim ? [] : walkRange(s, sel);
       for (const r of reach) out.push({ i: idx(r.x, r.y), color: C.reach, scale: 0.92 });

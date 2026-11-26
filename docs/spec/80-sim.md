@@ -59,3 +59,18 @@ Normal vs random: 100% (both seats). Determinism ok.
 **Orders used:** walk 43.3%, Double tap 12.5%, Burst 8.4%, Ram jab 6.1%, High explosive 4.8%, Strike 4.7%, Kick 3.5%, Shot 3.3%, Snap 2.9%, Braced shot 2.3%, Bash 2.1%, Patch 2.0%, Salvo 1.6%, Mark 1.4%, Shunt 0.4%, Pivot 0.4%, Throw 0.3%, Drive-through 0.2%. Ram jab took Shove's place: both push, Ram jab is cheaper.
 
 **Never picked by the AI:** Aimed pair, Suppress, Smoke, Cover lane, Guard, Shove, Grab, Dash, Brace, Plant, Overdrive, Tow, Tagged salvo. Shunt shows up only when a walker happens to end next to a wagon; AI v2 must walk to the rails on purpose. Tagged salvo cannot come up on Marrow Yard as built: only the Directorate carries missiles and only the Lanterns carry a sensor mast (it needs a salvaged missile box or sensor).
+
+## Combat v2, slice 5e (2026-11-26): nerve and signatures, no number changed
+Nerve now moves (NRV-2) and the five signatures are in (NRV-5). The AI uses Drill tempo at the start of a phase, Call the line and Shoulder to shoulder before standing down with enemies near, Hot patch on a part missing 30 or more within 2, and Ghost step after firing when it cuts the threat by more than 10.
+
+| battles | player win | timeouts | median rounds | player walkers lost | hostile lost | salvage per win | violations |
+|---|---|---|---|---|---|---|---|
+| 200 | 46.0% | 1 | 10 | 2.96 | 3.98 | 20.2 | 0 |
+
+Normal vs random: 100% (both seats). Determinism ok.
+
+**Nerve over 40 battles:** walkers are Steady in 44.2% of phase ends and Shaken in 5.1%. Moves: hit +1 (1,741), flank hit -1 (1,026), ally lost -2 (486), rear hit -2 (291), standing together +1 (220), kill +2 (188), knocked down -1 (19).
+
+**Over the band:** AI vs AI is 46.0%, one point over the 30-45% target. The Lanterns have four signatures to the Directorate's one, and landing hits makes Steady (+10) common. Not tuned here: AI v2 (5f) changes how both sides play, so the balance pass (5g) tunes after it. Candidates: nerve `landHit` +1 only on a hit that does 20 or more, or `steady` at 9.
+
+**Orders used:** signatures run 0.0-0.4% each (Ghost step 0.4%, Call the line 0.3%, Shoulder to shoulder 0.3%, Drill tempo and Hot patch under 0.05%), as expected for once-per-battle moves.

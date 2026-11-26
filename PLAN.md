@@ -49,5 +49,5 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M2 | Client: board, part-kit walkers, terrain, HUD, close-ups, save | done 2026-11-24 |
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
 | M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
-| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | in progress: 5a (spec and data) done 2026-11-25; 5b (core loop, reactions, push, smoke) and 5c (maneuvers, wagons, stacks) done 2026-11-26; next 5e |
+| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | in progress: 5a (spec and data) done 2026-11-25; 5b (core loop, reactions, push, smoke) 5c (maneuvers, wagons, stacks) and 5e (nerve, signatures) done 2026-11-26; next 5f (AI v2) |
 | M6 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow, a swing bridge); pilot levels; fog of war | after M5 |

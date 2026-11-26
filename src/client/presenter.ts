@@ -2,7 +2,8 @@
 // camera close-ups, sound and voice. It is driven by `update(dt)` from the render loop and from window.__ib.advance,
 // because a hidden pane throttles requestAnimationFrame (KB recipe section 11).
 import * as THREE from 'three';
-import { maneuver, weapon, type WeaponDef } from '../engine/data';
+import { maneuver, pilot as pilotDef, weapon, type WeaponDef } from '../engine/data';
+const pilotName = (id: string): string => pilotDef(id).name;
 import { unitById } from '../engine/query';
 import { RULES } from '../engine/data';
 import type { BattleState, Facing, GameEvent, HitSlot, PartSlot, WeaponSlot } from '../engine/types';
@@ -236,6 +237,27 @@ function start(ev: GameEvent): Track {
       if (ev.status === 'down') { const a = anims.get(ev.unit); if (a) a.hit = 1; audio.play('armor-hit', { gain: 0.6 }); }
       g.note(`${name(ev.unit)}: ${label.toLowerCase()}.`, 'note');
       return { t: 0, dur: 0.4, tick: () => {}, done: () => {} };
+    }
+    case 'nerve': {
+      // Only the moves that change a band or are large get a float; the gauge shows the rest.
+      const n = RULES.nerve, before = ev.now - ev.delta;
+      const crossed = (before < n.steady) !== (ev.now < n.steady) || (before > n.shaken) !== (ev.now > n.shaken);
+      if (crossed || Math.abs(ev.delta) >= 2) {
+        const pos = partPos(ev.unit, 'body');
+        const band = ev.now >= n.steady ? ' STEADY' : ev.now <= n.shaken ? ' SHAKEN' : '';
+        addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0.3, 1.0, 0)), b: pos, dur: 1.3, text: `NERVE ${ev.delta > 0 ? '+' : ''}${ev.delta}${band}`, color: ev.delta > 0 ? '#9fe0a0' : '#ff9c90' });
+        if (crossed && band) g.note(`${name(ev.unit)} is ${band.trim().toLowerCase()}.`, 'note');
+      }
+      mutateShown((c) => { const u = c.units.find((x) => x.id === ev.unit); if (u) u.nerve = ev.now; });
+      return { t: 0, dur: crossed ? 0.35 : 0.02, tick: () => {}, done: () => {} };
+    }
+    case 'signature': {
+      const sig = maneuver(ev.id);
+      const u = unitById(s, ev.unit);
+      useGame.setState({ banner: { text: (sig?.name ?? ev.id).toUpperCase(), sub: u ? pilotName(u.pilot) : '', until: g.clock + 1.3 } });
+      audio.play(u?.side === 'player' ? 'turn-player' : 'turn-enemy', { gain: 0.6 });
+      g.note(`${name(ev.unit)}: ${sig?.name ?? ev.id}${ev.targets.length ? ` (${ev.targets.map(name).join(', ')})` : ''}.`, u?.side ?? 'note');
+      return { t: 0, dur: 1, tick: () => {}, done: () => {} };
     }
     case 'overdrive': {
       const pos = partPos(ev.unit, 'body');

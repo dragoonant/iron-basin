@@ -402,6 +402,8 @@ export function maneuversOf(u: Unit): ManeuverOption[] {
   for (const [slot, armId, hp] of [['L', u.build.armL, u.hp.armL], ['R', u.build.armR, u.hp.armR]] as const) if (hp > 0) for (const id of arm(armId).maneuvers ?? []) add(id, slot);
   if (u.hp.legs > 0) for (const id of legs(u.build.legs).maneuvers ?? []) add(id, null);
   if (!u.status.packOut) for (const id of pack(u.build.pack).maneuvers ?? []) add(id, null);
+  const sig = pilot(u.pilot).signature;
+  if (sig) add(sig, null);
   for (const id of PARTS.universal) {
     const def = maneuver(id);
     if (def?.needs === 'emptyHand' || def?.needs === 'emptyHand+rubble') {
@@ -441,6 +443,10 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
   const d = g.def;
   if (d.kind === 'trait') return 'always on';
   if (u.done) return 'stood down';
+  if (d.kind === 'signature') { // NRV-5: Steady is checked before the cost
+    if (u.sigUsed) return 'once per battle';
+    if (!steady(u)) return `needs Steady (${RULES.nerve.steady} nerve)`;
+  }
   if (u.drive < d.dp) return `needs ${d.dp} drive`;
   if (d.nerve && u.nerve < d.nerve) return `needs ${d.nerve} nerve`;
   if (slot && u.fired.includes(slot)) return 'this arm has given its order this phase';
@@ -458,6 +464,16 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
     case 'tow': return target && target.alive && target.side === u.side && target.id !== u.id ? (towMove(s, u, target) ? null : 'no room to tow') : 'tow an adjacent ally';
     case 'shunt': return tile && shuntDir(s, u, tile) ? null : 'stand on the rails next to a wagon on the same line';
     case 'patch': return 'use Patch';
+    case 'ghost-step': {
+      if (!u.fired.length) return 'only after a fire order this phase';
+      if (u.status.grabbedBy) return 'held by a grab';
+      return tile && reachable(s, u, stats(s, u).move, u, hasTrait(u, 'hop')).some((r) => r.x === tile.x && r.y === tile.y && (r.x !== u.x || r.y !== u.y)) ? null : 'out of reach';
+    }
+    case 'hot-patch': {
+      if (pack(u.build.pack).kind !== 'repair' || u.status.packOut || u.charges <= 0) return 'needs a working repair crane with a charge';
+      if (!target || !target.alive || target.side !== u.side) return 'patch an ally';
+      return dist(u, target) <= (d.range ?? 2) ? null : `ally must be within ${d.range ?? 2}`;
+    }
     default: break;
   }
   if (d.kind === 'attack') {

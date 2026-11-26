@@ -6,7 +6,7 @@
 
 **The one-line pitch:** *every walker has a budget of drive to spend each phase, and what it can spend it on comes from the parts bolted to it, the ground it stands on and the nerve of the person inside.*
 
-Status: **slices 5a, 5b and 5c done** (2026-11-26); the turn and the maneuvers play on v2. The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
+Status: **slices 5a-5e done** (2026-11-26); every spec 15 rule plays. Left: AI v2 (5f), the balance pass (5g), polish (5h). The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
 
 ---
 
@@ -134,7 +134,7 @@ Nerve is how the pilots show up on the field, not only in the briefing. Pilot le
 | **5b** ✓ | Core loop: state `v: 2`, drive, walks, fire modes, facing and arcs, backpack hits, undo; plus reactions (return fire, overwatch, guard), push, knockdown and smoke, which the modes need; retired 9 spec 10 ids | DRV, HIT, MOD, FAC, RCT, FLD-1/2/6/8, MAN-10 | done 2026-11-26: AI vs AI 41.5%, median 11 rounds, normal vs random 100% (`80-sim.md`) |
 | **5c** ✓ | Maneuvers and the field: kick, ram jab, grab, throw, dash, hop, brace, plant, overdrive, mark, tow; rolling wagons and toppling stacks (push, fall, knockdown and smoke landed in 5b) | FLD, the maneuver rows | done 2026-11-26: coupled wagons roll as a rake (FLD-3 ruling); AI vs AI 42.5%, median 10 rounds |
 | **5d** | (folded into 5b) | | |
-| **5e** | Nerve and signatures | NRV | the nerve gauge and signatures show in the HUD |
+| **5e** ✓ | Nerve and signatures | NRV | done 2026-11-26: nerve gauge and signature buttons in the HUD; AI vs AI 46.0% |
 | **5f** | AI v2: plans a sequence (walk, action, walk) inside the drive budget with a small beam search; values flanks, push into hazards, keeping reserve when threatened, wagon lines | ARCH-4 | `bench:ai`: v2 beats random ≥ 90% and beats the v1 AI (kept as `simple`) ≥ 65% |
 | **5g** | Balance pass 2 and usage telemetry: `sim` reports how often each mode and maneuver is used, and a mode below 3% of actions is redesigned or cut | | AI vs AI player win 30-45%; median rounds ≤ 12; recorded in `80-sim.md` |
 | **5h** | Hangar moveset view, briefing notes, first-phase hints, phone landscape check (844×390), save v2, Artifact republish | HGR-4, SAV | e2e full contract on v2; `check:look` |

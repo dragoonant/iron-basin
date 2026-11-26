@@ -1,12 +1,12 @@
 // The rules engine (spec 10 and spec 15). Pure: step() works on a copy and never throws (ARCH-1).
 import { body, MISSIONS, pack, pilot, RULES, weapon, type MissionDef } from './data';
-import { ahead, arcOf, dirTo, dist, FACINGS, inBounds, tileAt, unitAt, type Pos } from './grid';
+import { ahead, arcOf, dirTo, dist, FACINGS, hasLos, inBounds, reachable, tileAt, unitAt, type Pos } from './grid';
 import { maneuver } from './data';
 import { next, seedRng, hashText } from './rng';
 import {
   callable, chanceOf, cheapestMode, dashRange, driveAtStart, fireBlock, guardFor, hasTrait, hitWeights, indirectSight, living, maneuverBlock,
   maneuverRoll, maneuversOf, maxHp, modeIn, modes, overwatchers, patchCost, pivotCost, returnFire, shieldCut, shuntDir, towMove, unitById,
-  walkRange, weaponIn, type FireClass, type Roll,
+  stats, walkRange, weaponIn, type FireClass, type Roll,
 } from './query';
 import type {
   Action, BattleState, Build, Facing, GameEvent, HitSlot, PaintSlot, PartSlot, Paint, Reaction, Result, ShotEvent, Side, StepResult, Tile, Unit, WeaponSlot,
@@ -39,7 +39,7 @@ export function makeUnit(d: Deploy): Unit {
     paint: { body: base, armL: base, armR: base, legs: base, pack: base, ...(d.paint ?? {}) },
     hp: { body: 0, armL: 0, armR: 0, legs: 0 }, ammo: null, charges: 0,
     drive: 0, reserve: RULES.drive.startReserve, done: false, fired: [], walked: false, lastWalk: null, holdFire: false,
-    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], grip: null, usedThisPhase: [], alive: true,
+    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], grip: null, usedThisPhase: [], sigUsed: false, bonusReserve: 0, alive: true,
   };
   for (const p of ['body', 'armL', 'armR', 'legs'] as const) u.hp[p] = Math.min(maxHp(u, p), d.hp?.[p] ?? maxHp(u, p));
   const pk = pack(u.build.pack);
@@ -85,10 +85,24 @@ function applyDamage(t: Unit, part: PartSlot, raw: number, cut: number): { part:
   return { part: p, dmg, partLost: before > 0 && t.hp[p] === 0 && p !== 'body' };
 }
 
+/** NRV-2: move a pilot's nerve, clamped to 0..max. */
+function nerve(u: Unit, delta: number, why: Extract<GameEvent, { type: 'nerve' }>['why'], ev: GameEvent[]): void {
+  if (!delta) return;
+  const now = Math.max(0, Math.min(RULES.nerve.max, u.nerve + delta));
+  if (now === u.nerve) return;
+  const d = now - u.nerve;
+  u.nerve = now;
+  ev.push({ type: 'nerve', unit: u.id, delta: d, now, why });
+}
+
 function destroy(s: BattleState, t: Unit, by: string, ev: GameEvent[]): void {
   t.alive = false;
   t.done = true; t.drive = 0; t.reserve = 0; t.overwatch = null; t.guarding = [];
   ev.push({ type: 'destroyed', unit: t.id, by });
+  // NRV-2: credit for the kill; allies that see it lose nerve.
+  const killer = unitById(s, by);
+  if (killer && killer.alive && killer.side !== t.side) nerve(killer, RULES.nerve.kill, 'kill', ev);
+  for (const a of s.units) if (a.alive && a.side === t.side && a.id !== t.id && hasLos(s, a, t)) nerve(a, RULES.nerve.allyLost, 'allyLost', ev);
   if (t.side !== 'hostile') return;
   // SAL-1: what still had HP when it fell.
   const paint = t.paint;
@@ -107,6 +121,7 @@ function knockDown(t: Unit, ev: GameEvent[]): void {
   if (!t.alive || t.status.down || t.status.braced) return; // MAN-5
   t.status.down = true;
   ev.push({ type: 'status', unit: t.id, status: 'down' });
+  nerve(t, RULES.nerve.knockedDown, 'down', ev);
 }
 
 /** MAN-6: let go. */
@@ -259,13 +274,19 @@ function resolveFire(s: BattleState, a: Unit, mi: Roll, t: Unit, opts: FireOpts,
   if (mi.slot === 'P' && a.ammo !== null) a.ammo -= 1; // MOD-3
   ev.push({ type: 'attack', unit: a.id, slot: mi.slot, weapon: mi.weaponId, mode: mi.mode.id, target: t.id, counter: opts.reaction !== null, reaction: opts.reaction, arc, chance, shots });
   ev.push(...after);
+  // NRV-2: landing a hit steadies the shooter; a hit from the side or rear shakes the target (not indirect fire).
+  if (hitOn.size && a.alive) nerve(a, RULES.nerve.landHit, 'hit', ev);
+  if (hitOn.has(t.id) && t.alive && cls !== 'indirect') {
+    if (arc === 'rear') nerve(t, RULES.nerve.hitRear, 'hitRear', ev);
+    else if (arc !== 'front') nerve(t, RULES.nerve.hitSide, 'hitSide', ev);
+  }
   reap(s, a.id, ev);
   // MOD-6, MOD-7: effects land on each walker that took a hit.
   const fx = mi.mode.effect;
   for (const id of [...hitOn].sort()) {
     const v = unitById(s, id);
     if (!v || !v.alive) continue;
-    if (fx === 'pin' && !v.status.pinned) { v.status.pinned = true; ev.push({ type: 'status', unit: v.id, status: 'pinned' }); }
+    if (fx === 'pin' && !v.status.pinned) { v.status.pinned = true; ev.push({ type: 'status', unit: v.id, status: 'pinned' }); nerve(v, RULES.nerve.pinned, 'pinned', ev); }
     if (fx === 'stagger' && !v.status.staggered) { v.status.staggered = true; ev.push({ type: 'status', unit: v.id, status: 'staggered' }); }
     if (fx === 'knockdown') knockDown(v, ev);
     if (fx === 'push') push(s, a, v, a, ev);
@@ -315,7 +336,7 @@ function startPhase(s: BattleState, side: Side, ev: GameEvent[]): void {
   for (const u of s.units) if (u.side === side && u.grip) release(s, u, ev); // MAN-6
   for (const u of s.units) {
     if (u.side !== side || !u.alive) continue;
-    u.status.braced = false; u.status.planted = false; u.usedThisPhase = []; // MAN-5, MAN-8
+    u.status.braced = false; u.status.planted = false; u.usedThisPhase = []; u.bonusReserve = 0; // MAN-5, MAN-8, NRV-5
     u.reserve = 0;
     u.drive = driveAtStart(u);
     u.status.suppressed = u.status.pinned;
@@ -327,12 +348,14 @@ function startPhase(s: BattleState, side: Side, ev: GameEvent[]): void {
 
 /** DRV-5, DRV-6. */
 function standDown(u: Unit): number {
-  if (!u.done) { u.reserve = Math.min(RULES.drive.reserveCap, u.drive); u.done = true; }
+  if (!u.done) { u.reserve = Math.min(RULES.drive.signatureReserveCap, Math.min(RULES.drive.reserveCap, u.drive) + u.bonusReserve); u.done = true; }
   u.drive = 0; u.lastWalk = null;
   return u.reserve;
 }
 
-function endPhaseFor(s: BattleState, side: Side): void {
+function endPhaseFor(s: BattleState, side: Side, ev: GameEvent[]): void {
+  // NRV-2: walkers that end the phase next to an ally steady each other.
+  for (const u of s.units) if (u.side === side && u.alive && s.units.some((a) => a.alive && a.side === side && a.id !== u.id && dist(a, u) === 1)) nerve(u, RULES.nerve.together, 'together', ev);
   for (const u of s.units) if (u.side === side && u.alive) { standDown(u); u.status.suppressed = false; }
 }
 
@@ -414,6 +437,7 @@ function stepInner(state: BattleState, action: Action): StepResult {
       if (!u || !lw || lw.reacted) return reject(state, 'nothing to undo');
       if (unitAt(s, lw.from.x, lw.from.y)) return reject(state, 'start tile taken');
       u.x = lw.from.x; u.y = lw.from.y; u.facing = lw.facing; u.drive += lw.dp; u.nerve += lw.nerve; u.walked = lw.wasWalked; u.lastWalk = null;
+      if (lw.sig) u.sigUsed = false;
       if (u.done && u.reserve === 0) u.done = false;
       ev.push({ type: 'undo', unit: u.id, x: u.x, y: u.y, facing: u.facing });
       break;
@@ -512,6 +536,20 @@ function stepInner(state: BattleState, action: Action): StepResult {
       if (why) return reject(state, why);
       const d = maneuver(action.id)!;
       const r = maneuverRoll(action.id, slot);
+      if (action.id === 'ghost-step') { // NRV-5 (Varga): a free walk after a fire order
+        if (!isFacing(action.facing)) return reject(state, 'bad facing');
+        const path = reachable(s, u, stats(s, u).move, u, hasTrait(u, 'hop')).find((q) => q.x === tile!.x && q.y === tile!.y)!.path;
+        u.sigUsed = true;
+        walk(s, u, path, action.facing, ev, 0, d.nerve ?? 0);
+        if (u.lastWalk) u.lastWalk.sig = true;
+        ev.push({ type: 'signature', unit: u.id, id: action.id, targets: [] });
+        settle(u);
+        break;
+      }
+      if (action.id === 'hot-patch') { // NRV-5 (Haldane): Patch at range, with nerve for the patched pilot
+        const part = action.part;
+        if (!t || !part || !PARTS.includes(part) || t.hp[part] <= 0 || t.hp[part] >= maxHp(t, part)) return reject(state, 'name a damaged, not lost part');
+      }
       if (action.id === 'dash') {
         if (!isFacing(action.facing)) return reject(state, 'bad facing');
         const path = dashRange(s, u).find((q) => q.x === tile!.x && q.y === tile!.y)!.path;
@@ -535,6 +573,28 @@ function stepInner(state: BattleState, action: Action): StepResult {
         u.x = mv.tower.x; u.y = mv.tower.y; t!.x = mv.ally.x; t!.y = mv.ally.y;
         ev.push({ type: 'tow', unit: u.id, ally: t!.id, x: u.x, y: u.y, ax: t!.x, ay: t!.y });
       } else if (action.id === 'shunt') shunt(s, u, tile!, shuntDir(s, u, tile!)!, ev);
+      else if (d.kind === 'signature') {
+        u.sigUsed = true;
+        const allies = s.units.filter((a) => a.alive && a.side === u.side && a.id !== u.id);
+        let targets: string[] = [];
+        if (action.id === 'call-the-line') { // Marlow: +1 reserve to every ally in her sight
+          for (const a of allies) if (hasLos(s, u, a)) { if (a.done) a.reserve = Math.min(RULES.drive.signatureReserveCap, a.reserve + 1); else a.bonusReserve += 1; targets.push(a.id); }
+        } else if (action.id === 'shoulder-to-shoulder') { // Okonjo: Brace, and Guard every adjacent ally
+          u.status.braced = true;
+          if (u.hp.armL > 0 && weaponIn(u, 'L')?.def.class === 'shield') for (const a of allies) if (dist(a, u) === 1 && !u.guarding.includes(a.id)) u.guarding.push(a.id);
+          targets = [...u.guarding];
+        } else if (action.id === 'hot-patch') {
+          const pk = pack(u.build.pack), part = action.part!;
+          const amount = Math.min(pk.heal ?? 0, maxHp(t!, part) - t!.hp[part]);
+          t!.hp[part] += amount; u.charges -= 1;
+          ev.push({ type: 'repaired', unit: u.id, target: t!.id, part, amount });
+          nerve(t!, d.nerveGift ?? 0, 'gift', ev);
+          targets = [t!.id];
+        } else if (action.id === 'drill-tempo') { // Hallen: +1 drive now to every ally in his sight still acting
+          for (const a of allies) if (!a.done && hasLos(s, u, a)) { a.drive += d.gain ?? 0; targets.push(a.id); }
+        }
+        ev.push({ type: 'signature', unit: u.id, id: action.id, targets });
+      }
       settle(u);
       break;
     }
@@ -553,7 +613,7 @@ function stepInner(state: BattleState, action: Action): StepResult {
     }
     case 'endPhase': {
       const m = MISSIONS[s.mission]!;
-      endPhaseFor(s, s.phase);
+      endPhaseFor(s, s.phase, ev);
       if (s.phase === 'player') { s.phase = 'hostile'; startPhase(s, 'hostile', ev); }
       else {
         if (s.round >= m.roundLimit) { checkEnd(s, ev, true); s.turnCount += 1; return { state: s, events: ev }; }
@@ -655,6 +715,8 @@ export function legalActions(s: BattleState): Action[] {
       if (m.def.kind === 'trait' || m.id === 'patch' || m.id === 'pivot') continue;
       const base = { type: 'maneuver' as const, unit: u.id, id: m.id, ...(m.slot ? { slot: m.slot } : {}) };
       if (m.id === 'dash') { if (maneuverBlock(s, u, 'dash', null, null, null) === 'out of reach') for (const r of dashRange(s, u)) if (r.x !== u.x || r.y !== u.y) for (const f of FACINGS) out.push({ ...base, x: r.x, y: r.y, facing: f }); }
+      else if (m.id === 'ghost-step') { for (const r of reachable(s, u, stats(s, u).move, u, hasTrait(u, 'hop'))) if (!maneuverBlock(s, u, m.id, null, null, r)) for (const f of FACINGS) out.push({ ...base, x: r.x, y: r.y, facing: f }); }
+      else if (m.id === 'hot-patch') { for (const t of s.units) if (!maneuverBlock(s, u, m.id, null, t, null)) for (const p of PARTS) if (t.hp[p] > 0 && t.hp[p] < maxHp(t, p)) out.push({ ...base, target: t.id, part: p }); }
       else if (m.def.kind === 'attack' || m.id === 'mark' || m.id === 'tow') { for (const t of s.units) if (!maneuverBlock(s, u, m.id, m.slot, t, null)) out.push({ ...base, target: t.id }); }
       else if (m.id === 'shunt') { for (const f of FACINGS) { const p = ahead(u, f); if (!maneuverBlock(s, u, 'shunt', null, null, p)) out.push({ ...base, x: p.x, y: p.y }); } }
       else if (!maneuverBlock(s, u, m.id, m.slot, null, null)) out.push(base);

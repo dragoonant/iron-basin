@@ -46,6 +46,23 @@ function Pips({ n, of, kind }: { n: number; of: number; kind: 'drive' | 'reserve
   return <span className={`pips ${kind}`} aria-label={`${kind} ${n} of ${of}`}>{Array.from({ length: of }, (_, i) => <i key={i} className={i < n ? 'on' : ''} />)}</span>;
 }
 
+/** NRV-1, NRV-3: nerve as a pencil gauge with the Shaken and Steady bands marked. */
+function NerveGauge({ u }: { u: Unit }) {
+  const n = RULES.nerve;
+  const band = u.nerve >= n.steady ? 'steady' : u.nerve <= n.shaken ? 'shaken' : '';
+  return (
+    <div className={`nerve-row ${band}`} data-testid={`nerve-${u.id}`}>
+      <b>NERVE</b>
+      <span className="nerve-track">
+        <span className="nerve-fill" style={{ width: `${(100 * u.nerve) / n.max}%` }} />
+        <i className="tick" style={{ left: `${(100 * (n.shaken + 0.5)) / n.max}%` }} />
+        <i className="tick" style={{ left: `${(100 * (n.steady - 0.5)) / n.max}%` }} />
+      </span>
+      <span>{u.nerve}{band === 'steady' ? ' steady' : band === 'shaken' ? ' shaken' : ''}</span>
+    </div>
+  );
+}
+
 function statusChips(u: Unit): string[] {
   const out: string[] = [];
   if (u.status.down) out.push('DOWN');
@@ -80,7 +97,8 @@ function UnitCard({ s, u, compact }: { s: BattleState; u: Unit; compact?: boolea
         <div>
           <div className="call">{p.call}</div>
           <div className="pname">{p.name}</div>
-          <div className="stats"><b>MOVE</b> {st.move} <b>EVADE</b> {st.evade} <b>WT</b> {st.weight}/{st.power}{st.overweight ? ' OVER' : ''} <b>FACING</b> {u.facing} <b>NERVE</b> {u.nerve}/{RULES.nerve.max}</div>
+          <div className="stats"><b>MOVE</b> {st.move} <b>EVADE</b> {st.evade} <b>WT</b> {st.weight}/{st.power}{st.overweight ? ' OVER' : ''} <b>FACING</b> {u.facing}</div>
+          <NerveGauge u={u} />
           {u.alive && (
             <div className="drive-row" data-testid={`drive-${u.id}`}>
               {myTurn ? <><b>DRIVE</b> <Pips n={u.done ? 0 : u.drive} of={st.drive} kind="drive" /> {u.done ? 'stood down' : `${u.drive} left`}</> : <><b>RESERVE</b> <Pips n={u.reserve} of={RULES.drive.reserveCap} kind="reserve" /> {u.reserve} for reactions</>}
@@ -201,16 +219,17 @@ function ObjectPanel({ s, a, x, y }: { s: BattleState; a: Unit; x: number; y: nu
   );
 }
 
-function PatchPanel({ s, a, close }: { s: BattleState; a: Unit; close: () => void }) {
+function PatchPanel({ s, a, close, hot }: { s: BattleState; a: Unit; close: () => void; hot?: boolean }) {
   const pk = pack(a.build.pack);
+  const reach = hot ? 2 : 1;
   const rows: { t: Unit; p: PartSlot; amt: number }[] = [];
-  for (const t of living(s, 'player')) if (dist(a, t) <= 1) for (const [p] of PARTS) if (t.hp[p] > 0 && t.hp[p] < maxHp(t, p)) rows.push({ t, p, amt: Math.min(pk.heal ?? 0, maxHp(t, p) - t.hp[p]) });
+  for (const t of living(s, 'player')) if (dist(a, t) <= reach) for (const [p] of PARTS) if (t.hp[p] > 0 && t.hp[p] < maxHp(t, p)) rows.push({ t, p, amt: Math.min(pk.heal ?? 0, maxHp(t, p) - t.hp[p]) });
   return (
     <div className="card attack-panel">
-      <div className="ap-title">PATCH <span className="dist">{patchCost()} DP · {a.charges} charges</span></div>
+      <div className="ap-title">{hot ? 'HOT PATCH' : 'PATCH'} <span className="dist">{patchCost()} DP{hot ? ' · 4 nerve · range 2 · +2 nerve to them' : ''} · {a.charges} charges</span></div>
       {rows.length === 0 && <p className="hint">No damaged part within reach. Lost parts wait for the hangar.</p>}
       {rows.map((r) => (
-        <button key={r.t.id + r.p} className="fire-row" onClick={() => { useGame.getState().dispatch({ type: 'patch', unit: a.id, target: r.t.id, part: r.p }); close(); }}>
+        <button key={r.t.id + r.p} className="fire-row" onClick={() => { useGame.getState().dispatch(hot ? { type: 'maneuver', unit: a.id, id: 'hot-patch', target: r.t.id, part: r.p } : { type: 'patch', unit: a.id, target: r.t.id, part: r.p }); close(); }}>
           <span className="fr-w">{pilotDef(r.t.pilot).call}</span><span className="fr-dp">{PARTS.find((x) => x[0] === r.p)![1]}</span><span className="fr-d">+{r.amt}</span><span className="fr-n">{r.t.hp[r.p]}/{maxHp(r.t, r.p)}</span>
         </button>
       ))}
@@ -219,11 +238,12 @@ function PatchPanel({ s, a, close }: { s: BattleState; a: Unit; close: () => voi
   );
 }
 
-const SELF_MOVES = ['brace', 'plant', 'overdrive', 'breakFree'];
-const AIM_MOVES = ['dash', 'tow'];
+const SELF_MOVES = ['brace', 'plant', 'overdrive', 'breakFree', 'call-the-line', 'shoulder-to-shoulder', 'drill-tempo'];
+const AIM_MOVES = ['dash', 'tow', 'ghost-step'];
 const AIM_HINT: Record<string, string> = {
   dash: 'Tap a tile within dash reach (move +3, costs 1 nerve). Tap the walker to cancel.',
   tow: 'Tap an adjacent ally to drag it one tile, behind you.',
+  'ghost-step': 'Ghost step: tap a tile to walk there for no drive.',
   smoke: 'Tap a tile in mortar range to lay a 3×3 screen. Tap the walker to cancel.',
   overwatch: 'Tap a tile straight out from the walker: the lane it covers in the Directorate phase.',
   guard: 'Tap an adjacent ally to guard it with the shield.',
@@ -244,7 +264,7 @@ export function Hud() {
   const presenting = useGame((g) => g.presenting || g.queue.length > 0);
   const saveError = useGame((g) => g.saveError);
   const [menu, setMenu] = useState(false);
-  const [patching, setPatching] = useState(false);
+  const [patching, setPatching] = useState<false | 'patch' | 'hot'>(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   if (!s || !liveState) return null;
   const m = MISSIONS[s.mission]!;
@@ -294,7 +314,7 @@ export function Hud() {
       <div className="right-col">
         {canAct && tgt && sel && <AttackPanel s={s} a={sel} t={tgt} />}
         {canAct && targetObj && sel && <ObjectPanel s={s} a={sel} x={targetObj.x} y={targetObj.y} />}
-        {canAct && patching && sel && !tgt && <PatchPanel s={s} a={sel} close={() => setPatching(false)} />}
+        {canAct && patching && sel && !tgt && <PatchPanel s={s} a={sel} hot={patching === 'hot'} close={() => setPatching(false)} />}
       </div>
 
       <div className="orders">
@@ -315,16 +335,18 @@ export function Hud() {
                 ))}
                 {moves.map((m) => {
                   const aimOnly = AIM_MOVES.includes(m.id);
-                  const why = aimOnly ? (sel.drive < m.def.dp ? `needs ${m.def.dp} drive` : m.def.nerve && sel.nerve < m.def.nerve ? `needs ${m.def.nerve} nerve` : m.id === 'dash' && sel.status.grabbedBy ? 'held' : null) : maneuverBlock(s, sel, m.id, m.slot, null, null);
+                  const sigWhy = m.def.kind === 'signature' ? (sel.sigUsed ? 'used' : !steady(sel) ? 'needs Steady' : m.id === 'ghost-step' && !sel.fired.length ? 'fire first' : null) : null;
+                  const why = sigWhy ?? (aimOnly ? (sel.drive < m.def.dp ? `needs ${m.def.dp} drive` : m.def.nerve && sel.nerve < m.def.nerve ? `needs ${m.def.nerve} nerve` : (m.id === 'dash' || m.id === 'ghost-step') && sel.status.grabbedBy ? 'held' : null) : maneuverBlock(s, sel, m.id, m.slot, null, null));
                   if (m.id === 'breakFree' && !sel.status.grabbedBy) return null;
                   const on = maneuverAim === m.id;
                   return (
-                    <button key={m.id} data-testid={`move-${m.id}`} className={on ? 'on' : ''} disabled={!!why} onClick={() => { audio.play('ui-tick'); if (aimOnly) useGame.getState().setManeuverAim(on ? null : m.id); else useGame.getState().maneuver(m.id); }}>
+                    <button key={m.id} data-testid={`move-${m.id}`} className={`${on ? 'on' : ''}${m.def.kind === 'signature' ? ' sig' : ''}`} disabled={!!why} onClick={() => { audio.play('ui-tick'); if (aimOnly) useGame.getState().setManeuverAim(on ? null : m.id); else useGame.getState().maneuver(m.id); }}>
                       {m.def.name} {m.def.dp}{m.def.nerve ? `+${m.def.nerve}N` : ''}
                     </button>
                   );
                 })}
-                {canPatch && <button onClick={() => { useGame.setState({ target: null, aim: null }); setPatching(true); }}>Patch {patchCost()}</button>}
+                {canPatch && <button onClick={() => { useGame.setState({ target: null, aim: null }); setPatching('patch'); }}>Patch {patchCost()}</button>}
+                {sel && maneuversOf(sel).some((m) => m.id === 'hot-patch') && <button className="sig" data-testid="move-hot-patch" disabled={sel.sigUsed || !steady(sel) || sel.drive < patchCost() || sel.charges <= 0} onClick={() => { useGame.setState({ target: null, aim: null }); setPatching('hot'); }}>Hot patch {patchCost()}+4N</button>}
                 <button data-testid="stand-down" onClick={() => { audio.play('confirm'); useGame.getState().dispatch({ type: 'standDown', unit: sel.id }); const n = nextReady(); useGame.getState().select(n && n.id !== sel.id ? n.id : null); }}>Stand down{sel.drive > 0 ? ` (keep ${Math.min(RULES.drive.reserveCap, sel.drive)})` : ''}</button>
               </>
             )}

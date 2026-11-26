@@ -7,11 +7,15 @@ import {
   callable, dashRange, fireBlock, hasTrait, hitChance, hitWeights, maneuverBlock, maneuversOf, overwatchers, returnFire, shieldCut, spotted, stats, walkRange,
 } from '../src/engine/query';
 import { seedRng } from '../src/engine/rng';
-import { legalActions, newBattle, step } from '../src/engine/step';
+import { legalActions, newBattle, step, view } from '../src/engine/step';
+import { runBattle, replay } from '../src/sim/run';
+import { hash } from '../src/engine/step';
+import { PILOTS } from '../src/engine/data';
 import type { Action, BattleState, GameEvent, Side } from '../src/engine/types';
 import { arena, place, u } from './helpers';
 
 const tile = (s: BattleState, x: number, y: number) => s.tiles[y * s.w + x]!;
+const fresh1 = () => arena(['marlow', 'haldane', 'dir-2', 'dir-1']);
 /** Give `side` the phase with fresh drive, as DRV-1 would, without the rest of the phase change. */
 function turn(s: BattleState, side: Side): BattleState {
   s.phase = side;
@@ -645,11 +649,87 @@ describe('the field (slice 5c)', () => {
 });
 
 describe('nerve (slice 5e)', () => {
-  it.todo('NRV-1 Nerve runs from 0 to nerve.max');
-  it.todo('NRV-2 Changes, applied as they happen, clamped to 0..max: landHit when an attack of the pilot’');
-  it.todo('NRV-3 Steady at nerve.steady or more: +steadyHit to hit and its signature can be used');
-  it.todo('NRV-4 Maneuvers with nerve need at least that much and spend it');
-  it.todo('NRV-5 Signatures, once per battle, Steady only');
-  it.todo('NRV-6 Nerve and signature use are in the state, so a replay is exact');
-  it.todo('NRV-7 The AI sees its own and the enemy’s nerve');
+  const nerveOf = (ev: GameEvent[], id: string) => ev.filter((e) => e.type === 'nerve' && e.unit === id).map((e) => e.type === 'nerve' ? e.why : '');
+  it('NRV-1 nerve starts at the pilot’s value and stays within 0..max', () => {
+    const s = fresh1();
+    for (const w of s.units) expect(w.nerve).toBe(PILOTS[w.pilot]!.nerve);
+    u(s, 'marlow').nerve = RULES.nerve.max;
+    place(s, 'marlow', 5, 11); place(s, 'dir-2', 5, 8);
+    const r = until(s, { type: 'fire', unit: 'marlow', slot: 'R', mode: 'burst', target: 'dir-2' }, hitOn('dir-2'));
+    expect(u(r.state, 'marlow').nerve).toBe(RULES.nerve.max);
+  });
+  it('NRV-2 hits, kills, flanks, pins, knockdowns, lost allies and standing together move nerve', () => {
+    const s = arena(['haldane', 'dir-2', 'dir-1']);
+    place(s, 'haldane', 8, 7); place(s, 'dir-2', 5, 7); place(s, 'dir-1', 5, 6);
+    const side = until(s, { type: 'fire', unit: 'haldane', slot: 'R', mode: 'double', target: 'dir-2' }, hitOn('dir-2'));
+    expect(nerveOf(side.events, 'haldane')).toContain('hit');
+    expect(nerveOf(side.events, 'dir-2')).toContain('hitSide');
+    expect(u(side.state, 'dir-2').nerve).toBe(PILOTS['dir-2']!.nerve + RULES.nerve.hitSide);
+    u(s, 'dir-2').hp.body = 1;
+    const kill = until(s, { type: 'fire', unit: 'haldane', slot: 'R', mode: 'double', target: 'dir-2' }, (ev) => ev.some((e) => e.type === 'destroyed'));
+    expect(nerveOf(kill.events, 'haldane')).toContain('kill');
+    expect(nerveOf(kill.events, 'dir-1')).toContain('allyLost');
+    const end = step(s, { type: 'endPhase' });
+    expect(nerveOf(end.events, 'dir-2')).toEqual([]);
+    const t = turn(arena(['dir-2', 'dir-1', 'marlow']), 'hostile'); place(t, 'dir-2', 5, 7); place(t, 'dir-1', 5, 6); place(t, 'marlow', 0, 17);
+    expect(nerveOf(step(t, { type: 'endPhase' }).events, 'dir-2')).toEqual(['together']);
+  });
+  it('NRV-3 Steady unlocks the signature; below it the signature is refused', () => {
+    const s = arena(['marlow', 'haldane', 'dir-2']);
+    expect(maneuverBlock(s, u(s, 'marlow'), 'call-the-line', null, null, null)).toBe(null);
+    u(s, 'marlow').nerve = RULES.nerve.steady - 1;
+    expect(maneuverBlock(s, u(s, 'marlow'), 'call-the-line', null, null, null)).toContain('Steady');
+  });
+  it('NRV-4 maneuvers with a nerve cost need that much and spend it', () => {
+    const s = arena(['marlow', 'dir-2']);
+    u(s, 'marlow').nerve = 2;
+    expect(maneuverBlock(s, u(s, 'marlow'), 'overdrive', null, null, null)).toBe('needs 3 nerve');
+    u(s, 'marlow').nerve = 3;
+    expect(u(ok(s, { type: 'maneuver', unit: 'marlow', id: 'overdrive' }).state, 'marlow').nerve).toBe(0);
+  });
+  it('NRV-5 the five signatures, once per battle', () => {
+    // Call the line: +1 reserve to allies in sight, up to the signature cap.
+    let s = arena(['marlow', 'haldane', 'okonjo', 'dir-2']);
+    place(s, 'marlow', 5, 12); place(s, 'haldane', 7, 12); place(s, 'okonjo', 3, 12); place(s, 'dir-2', 0, 0);
+    s = ok(s, { type: 'standDown', unit: 'okonjo' }).state;
+    s = ok(s, { type: 'maneuver', unit: 'marlow', id: 'call-the-line' }).state;
+    s = ok(s, { type: 'standDown', unit: 'haldane' }).state;
+    expect([u(s, 'okonjo').reserve, u(s, 'haldane').reserve]).toEqual([RULES.drive.signatureReserveCap, RULES.drive.signatureReserveCap]);
+    no(s, { type: 'maneuver', unit: 'marlow', id: 'call-the-line' });
+    // Shoulder to shoulder: Brace plus Guard on every adjacent ally.
+    let o = arena(['okonjo', 'haldane', 'marlow', 'dir-2']);
+    place(o, 'okonjo', 5, 12); place(o, 'haldane', 4, 12); place(o, 'marlow', 6, 12); place(o, 'dir-2', 0, 0); u(o, 'okonjo').nerve = RULES.nerve.steady;
+    o = ok(o, { type: 'maneuver', unit: 'okonjo', id: 'shoulder-to-shoulder' }).state;
+    expect(u(o, 'okonjo').status.braced).toBe(true);
+    expect([...u(o, 'okonjo').guarding].sort()).toEqual(['haldane', 'marlow']);
+    // Ghost step: a free walk, only after a fire order.
+    let v = arena(['varga', 'dir-2']);
+    place(v, 'varga', 5, 11); place(v, 'dir-2', 5, 8); u(v, 'varga').nerve = RULES.nerve.steady;
+    no(v, { type: 'maneuver', unit: 'varga', id: 'ghost-step', x: 7, y: 12, facing: 'N' });
+    v = ok(v, { type: 'fire', unit: 'varga', slot: 'R', mode: 'snap', target: 'dir-2' }).state;
+    const drive = u(v, 'varga').drive;
+    v = ok(v, { type: 'maneuver', unit: 'varga', id: 'ghost-step', x: 7, y: 12, facing: 'N' }).state;
+    expect([u(v, 'varga').x, u(v, 'varga').y, u(v, 'varga').drive]).toEqual([7, 12, drive]);
+    // Hot patch: range 2, and nerve for the patched pilot.
+    let h = arena(['haldane', 'marlow', 'dir-2']);
+    place(h, 'haldane', 5, 12); place(h, 'marlow', 5, 10); place(h, 'dir-2', 0, 0);
+    u(h, 'haldane').nerve = RULES.nerve.steady; u(h, 'marlow').hp.legs = 40; u(h, 'marlow').nerve = 5;
+    h = ok(h, { type: 'maneuver', unit: 'haldane', id: 'hot-patch', target: 'marlow', part: 'legs' }).state;
+    expect([u(h, 'marlow').hp.legs, u(h, 'marlow').nerve]).toEqual([85, 5 + 2]);
+    // Drill tempo: +1 drive now to allies in sight still acting.
+    let d = turn(arena(['hallen', 'dir-2', 'dir-4', 'marlow']), 'hostile');
+    place(d, 'hallen', 5, 3); place(d, 'dir-2', 7, 3); place(d, 'dir-4', 3, 3); place(d, 'marlow', 0, 17);
+    d = ok(d, { type: 'maneuver', unit: 'hallen', id: 'drill-tempo' }).state;
+    expect([u(d, 'dir-2').drive, u(d, 'dir-4').drive]).toEqual([5, 5]);
+    expect(u(d, 'hallen').sigUsed).toBe(true);
+  });
+  it('NRV-6 nerve and signature use live in the state, so replays are exact', () => {
+    const r = runBattle(11, 'normal', 'normal', false);
+    expect(replay(11, r.actions)).toBe(hash(r.state));
+    expect(r.state.units.every((w) => typeof w.nerve === 'number' && typeof w.sigUsed === 'boolean')).toBe(true);
+  });
+  it('NRV-7 the AI’s view shows every walker’s nerve', () => {
+    const s = fresh1();
+    expect(view(s, 'hostile').units.map((w) => w.nerve)).toEqual(s.units.map((w) => w.nerve));
+  });
 });

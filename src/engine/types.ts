@@ -63,7 +63,7 @@ export interface Status {
 export interface Overwatch { slot: WeaponSlot; dir: Facing }
 
 /** DRV-8: the last walk, kept while it can still be undone or count as a charge (MOD-5). */
-export interface LastWalk { from: Pos; facing: Facing; dp: number; nerve: number; dir: Facing | null; steps: number; reacted: boolean; wasWalked: boolean }
+export interface LastWalk { from: Pos; facing: Facing; dp: number; nerve: number; dir: Facing | null; steps: number; reacted: boolean; wasWalked: boolean; sig?: boolean }
 
 /** MAN-6: what a grabbing walker holds, and with which arm. */
 export interface Grip { target: string; arm: 'L' | 'R' }
@@ -106,6 +106,10 @@ export interface Unit {
   grip: Grip | null;
   /** MAN-8: maneuvers used this phase that are limited to one a phase. */
   usedThisPhase: string[];
+  /** NRV-5: the pilot's signature has been used this battle. */
+  sigUsed: boolean;
+  /** NRV-5 (Call the line): reserve added on top when this walker stands down this phase. */
+  bonusReserve: number;
   alive: boolean;
 }
 
@@ -156,7 +160,7 @@ export type Action =
   | { type: 'fireAt'; unit: string; slot: WeaponSlot; mode: string; x: number; y: number }
   | { type: 'patch'; unit: string; target: string; part: PartSlot }
   /** MAN-1: a part, universal or signature maneuver. `slot` names the arm for arm maneuvers; `target` a walker; x, y a tile. */
-  | { type: 'maneuver'; unit: string; id: string; slot?: WeaponSlot; target?: string; x?: number; y?: number; facing?: Facing }
+  | { type: 'maneuver'; unit: string; id: string; slot?: WeaponSlot; target?: string; x?: number; y?: number; facing?: Facing; part?: PartSlot }
   | { type: 'standDown'; unit: string }
   | { type: 'holdFire'; unit: string; on: boolean }
   | { type: 'endPhase' };
@@ -184,6 +188,10 @@ export type GameEvent =
   | { type: 'pushed'; unit: string; by: string; x: number; y: number; result: 'moved' | 'fell' | 'water' | 'collide'; dmg: number; other: string | null; obj: { x: number; y: number; dmg: number; broken: boolean } | null }
   | { type: 'status'; unit: string; status: 'pinned' | 'staggered' | 'down' | 'packOut' | 'braced' | 'planted' | 'marked' | 'grabbed' | 'released' }
   | { type: 'overdrive'; unit: string; gain: number; strain: number }
+  /** NRV-2: a pilot's nerve moved. */
+  | { type: 'nerve'; unit: string; delta: number; now: number; why: 'hit' | 'kill' | 'together' | 'hitSide' | 'hitRear' | 'pinned' | 'down' | 'allyLost' | 'gift' }
+  /** NRV-5. */
+  | { type: 'signature'; unit: string; id: string; targets: string[] }
   | { type: 'tow'; unit: string; ally: string; x: number; y: number; ax: number; ay: number }
   /** FLD-3: the rake of coupled wagons that rolled, lead first. */
   | { type: 'wagon'; unit: string; cars: { from: Pos; to: Pos; hp: number; broken: boolean }[]; hit: string | null; obj: Pos | null }
