@@ -1,7 +1,7 @@
 // Between battles: the roster, the parts inventory and credits (SAL-1, HGR-1..4). Pure functions over plain JSON.
 import { arm, body, legs, MISSIONS, pack, RULES, weapon } from './data';
-import { maxHp, stats, weapons } from './query';
-import type { Deploy } from './step';
+import { maxHp, modes, stats, weapons } from './query';
+import { makeUnit, type Deploy } from './step';
 import type { BattleState, Build, Paint, PaintSlot, PartSlot, SalvageItem, Unit } from './types';
 
 export type ItemKind = 'body' | 'arm' | 'legs' | 'pack' | 'weapon';
@@ -29,7 +29,7 @@ export function deployFrom(c: Campaign): Deploy[] {
   const starts = m.units.filter((u) => u.side === 'player');
   return c.roster.filter((r) => r.hp.body > 0).map((r, i) => {
     const st = starts.find((u) => u.pilot === r.pilot) ?? starts[i % starts.length]!;
-    return { id: r.pilot, pilot: r.pilot, side: 'player' as const, x: st.x, y: st.y, build: { ...r.build }, hp: { ...r.hp }, paint: { ...r.paint } };
+    return { id: r.pilot, pilot: r.pilot, side: 'player' as const, x: st.x, y: st.y, facing: st.facing, build: { ...r.build }, hp: { ...r.hp }, paint: { ...r.paint } };
   });
 }
 
@@ -70,9 +70,17 @@ export function itemName(kind: ItemKind, id: string): string {
 
 /** HGR-4: what the hangar shows for a walker. */
 export function walkerSummary(r: RosterWalker) {
-  const u = { id: r.pilot, pilot: r.pilot, side: 'player', role: 'line', x: 0, y: 0, build: r.build, paint: r.paint, hp: r.hp, ammo: null, charges: 0, moved: false, acted: false, from: null, alive: true } as Unit;
+  const u = makeUnit({ id: r.pilot, pilot: r.pilot, side: 'player', x: 0, y: 0, build: r.build, paint: r.paint, hp: r.hp });
+  u.hp = { ...r.hp };
   const st = stats(null, u);
-  return { ...st, weapons: weapons(u).map((w) => ({ slot: w.slot, name: w.def.name, cls: w.def.class, range: [w.def.min, w.def.max], shots: w.def.shots, dmg: w.def.dmg, acc: w.def.acc, usable: w.usable })), max: { body: maxHp(u, 'body'), armL: maxHp(u, 'armL'), armR: maxHp(u, 'armR'), legs: maxHp(u, 'legs') } };
+  return {
+    ...st,
+    weapons: weapons(u).map((w) => ({
+      slot: w.slot, name: w.def.name, cls: w.def.class, range: [w.def.min, w.def.max], shots: w.def.shots, dmg: w.def.dmg, acc: w.def.acc, usable: w.usable,
+      modes: modes(u).filter((m) => m.slot === w.slot).map((m) => ({ id: m.mode.id, name: m.mode.name, dp: m.dp, shots: m.shots, dmg: Math.round(m.dmg), acc: m.acc })),
+    })),
+    max: { body: maxHp(u, 'body'), armL: maxHp(u, 'armL'), armR: maxHp(u, 'armR'), legs: maxHp(u, 'legs') },
+  };
 }
 
 export type EquipSlot = 'body' | 'armL' | 'armR' | 'legs' | 'pack' | 'wL' | 'wR';

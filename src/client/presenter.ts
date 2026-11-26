@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { weapon } from '../engine/data';
 import { unitById } from '../engine/query';
-import type { BattleState, GameEvent, PartSlot, WeaponSlot } from '../engine/types';
+import type { BattleState, Facing, GameEvent, HitSlot, PartSlot, WeaponSlot } from '../engine/types';
 import { audio } from './audio';
 import { frameField, live as world, rig, shot, tileToWorld, type Rig } from './board/world';
 import { aiOrder, useGame } from './store';
@@ -21,7 +21,10 @@ export function addFx(f: Omit<Fx, 'id' | 't'>): void { fxList.push({ ...f, id: f
 /** Muzzle positions and part centres published by the walker components each frame. */
 export const anchors = new Map<string, { muzzle: Partial<Record<WeaponSlot, THREE.Vector3>>; part: Record<PartSlot, THREE.Vector3> }>();
 
-const PART_LABEL: Record<PartSlot, string> = { body: 'BODY', armL: 'L.ARM', armR: 'R.ARM', legs: 'LEGS' };
+const PART_LABEL: Record<HitSlot, string> = { body: 'BODY', armL: 'L.ARM', armR: 'R.ARM', legs: 'LEGS', pack: 'PACK' };
+/** Model yaw for a facing: the walker's front looks along +z at 0 (FAC-1). */
+export const FACE_ANGLE: Record<Facing, number> = { N: Math.PI, E: Math.PI / 2, S: 0, W: -Math.PI / 2 };
+const modeName = (weaponId: string, mode: string): string => weapon(weaponId)?.modes.find((m) => m.id === mode)?.name ?? mode;
 const facingTo = (from: { x: number; y: number }, to: { x: number; y: number }): number => Math.atan2(to.x - from.x, to.y - from.y);
 
 function levelAt(s: BattleState, x: number, y: number): number { return s.tiles[y * s.w + x]?.h ?? 0; }
@@ -29,8 +32,8 @@ function levelAt(s: BattleState, x: number, y: number): number { return s.tiles[
 export function syncAnims(s: BattleState): void {
   for (const u of s.units) {
     const a = anims.get(u.id);
-    if (!a) anims.set(u.id, { x: u.x, y: u.y, level: levelAt(s, u.x, u.y), facing: u.side === 'player' ? Math.PI : 0, walk: 0, moving: false, recoil: {}, lunge: 0, hit: 0, fall: u.alive ? 0 : 1 });
-    else if (!a.moving) { a.x = u.x; a.y = u.y; a.level = levelAt(s, u.x, u.y); if (!u.alive) a.fall = 1; }
+    if (!a) anims.set(u.id, { x: u.x, y: u.y, level: levelAt(s, u.x, u.y), facing: FACE_ANGLE[u.facing], walk: 0, moving: false, recoil: {}, lunge: 0, hit: 0, fall: u.alive ? 0 : 1 });
+    else if (!a.moving) { a.x = u.x; a.y = u.y; a.level = levelAt(s, u.x, u.y); if (u.alive) a.facing = FACE_ANGLE[u.facing]; else a.fall = 1; }
   }
 }
 
@@ -41,10 +44,10 @@ let batchState: BattleState | null = null;
 let homeRig: Rig | null = null;
 let aiWait = 0;
 
-function partPos(id: string, part: PartSlot | null): THREE.Vector3 {
+function partPos(id: string, part: HitSlot | null): THREE.Vector3 {
   const an = anchors.get(id);
   const a = anims.get(id);
-  if (an && part) return an.part[part].clone();
+  if (an && part) return an.part[part === 'pack' ? 'body' : part].clone().add(new THREE.Vector3(0, part === 'pack' ? 0.15 : 0, 0));
   const p = tileToWorld(a?.x ?? 0, a?.y ?? 0, a?.level ?? 0);
   p.y += 0.85;
   return p;
@@ -85,7 +88,7 @@ function start(ev: GameEvent): Track {
   const s = batchState!;
   const name = (id: string) => { const u = unitById(s, id); return u ? (u.side === 'player' ? u.pilot.toUpperCase() : u.id === 'hallen' ? 'HALLEN' : u.id.toUpperCase()) : id; };
   switch (ev.type) {
-    case 'moved': {
+    case 'walked': {
       const a = anims.get(ev.unit)!;
       const path = ev.path;
       const per = 0.24;
@@ -103,12 +106,17 @@ function start(ev: GameEvent): Track {
           a.walk += 0.2;
           if (i !== lastStep) { lastStep = i; audio.play(unitById(s, ev.unit)?.build.legs.endsWith('-l') ? 'step-light' : 'step-heavy', { gain: 0.7 }); if (i === 0) audio.play('servo', { gain: 0.4 }); }
         },
-        done: () => { const end = path[path.length - 1]!; a.x = end.x; a.y = end.y; a.moving = false; a.level = levelAt(s, end.x, end.y); mutateShown((c) => { const u = c.units.find((x) => x.id === ev.unit)!; u.x = end.x; u.y = end.y; u.moved = true; }); },
+        done: () => { const end = path[path.length - 1]!; a.x = end.x; a.y = end.y; a.moving = false; a.level = levelAt(s, end.x, end.y); a.facing = FACE_ANGLE[ev.facing]; mutateShown((c) => { const u = c.units.find((x) => x.id === ev.unit)!; u.x = end.x; u.y = end.y; u.facing = ev.facing; }); },
       };
     }
     case 'undo': {
       const a = anims.get(ev.unit)!;
-      return { t: 0, dur: 0.05, tick: () => {}, done: () => { a.x = ev.x; a.y = ev.y; a.level = levelAt(s, ev.x, ev.y); } };
+      return { t: 0, dur: 0.05, tick: () => {}, done: () => { a.x = ev.x; a.y = ev.y; a.level = levelAt(s, ev.x, ev.y); a.facing = FACE_ANGLE[ev.facing]; } };
+    }
+    case 'pivot': {
+      const a = anims.get(ev.unit)!;
+      audio.play('servo', { gain: 0.5 });
+      return { t: 0, dur: 0.3, tick: () => { a.facing = FACE_ANGLE[ev.facing]; }, done: () => mutateShown((c) => { c.units.find((x) => x.id === ev.unit)!.facing = ev.facing; }) };
     }
     case 'attack': {
       const w = weapon(ev.weapon)!;
@@ -117,13 +125,15 @@ function start(ev: GameEvent): Track {
       if (au && tu) { attacker.facing = facingTo(au, tu); if (w.class === 'melee' || !ev.counter) closeup(au, tu); }
       const pre = g.settings.closeups && !ev.counter ? 0.5 : 0.18;
       const indirect = w.class === 'indirect';
-      const melee = w.class === 'melee';
+      const melee = (w.modes.find((md) => md.id === ev.mode)?.class ?? w.class) === 'melee';
       const missile = ev.weapon === 'w-missile';
       const flight = indirect ? 0.95 : missile ? 0.5 : 0.1;
       const gap = 0.24;
       const fired = new Set<number>();
       const landed = new Set<number>();
-      g.note(`${ev.counter ? 'Counter: ' : ''}${name(ev.unit)} fires ${w.name} at ${name(ev.target)} (${ev.chance}%).`, unitById(s, ev.unit)?.side ?? 'note');
+      const lead = ev.reaction === 'return' ? 'Return fire: ' : ev.reaction === 'overwatch' ? 'Overwatch: ' : '';
+      const arcNote = ev.arc === 'rear' ? ', from the rear' : ev.arc === 'front' ? '' : ', on the flank';
+      g.note(`${lead}${name(ev.unit)} fires ${w.name}, ${modeName(ev.weapon, ev.mode)}, at ${name(ev.target)} (${ev.chance}%${arcNote}).`, unitById(s, ev.unit)?.side ?? 'note');
       return {
         t: 0, dur: pre + ev.shots.length * gap + flight + 0.55,
         tick: (t) => {
@@ -138,27 +148,28 @@ function start(ev: GameEvent): Track {
                 addFx({ kind: 'flash', a: m, b: m, dur: 0.09, size: indirect ? 0.35 : 0.25 });
                 attacker.recoil[ev.slot] = 1;
                 if (i === 0) audio.play(w.sfx ?? 'carbine');
-                const dest = sh.hit && sh.part ? partPos(ev.target, sh.part) : partPos(ev.target, 'body').add(new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.3) * 0.6, (Math.random() - 0.5) * 1.2));
+                const dest = sh.hit && sh.part ? partPos(sh.on ?? ev.target, sh.part) : partPos(ev.target, 'body').add(new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.3) * 0.6, (Math.random() - 0.5) * 1.2));
                 addFx({ kind: indirect ? 'shell' : 'tracer', a: m, b: dest, dur: flight + 0.04, color: missile ? '#ffd28a' : '#ffcf70' });
                 if (!indirect && !missile) addFx({ kind: 'dust', a: m, b: m, dur: 0.4, size: 0.08, color: '#8a6a32' });
               }
             }
             if (t >= tf + flight && !landed.has(i)) {
               landed.add(i);
-              const pos = sh.hit && sh.part ? partPos(ev.target, sh.part) : partPos(ev.target, 'legs').add(new THREE.Vector3((Math.random() - 0.5) * 0.9, -0.4, (Math.random() - 0.5) * 0.9));
+              const hitId = sh.on ?? ev.target;
+              const pos = sh.hit && sh.part ? partPos(hitId, sh.part) : partPos(ev.target, 'legs').add(new THREE.Vector3((Math.random() - 0.5) * 0.9, -0.4, (Math.random() - 0.5) * 0.9));
               if (sh.hit && sh.part) {
                 target.hit = 1;
                 addFx({ kind: indirect || missile ? 'boom' : 'spark', a: pos, b: pos, dur: indirect || missile ? 0.7 : 0.35, size: indirect || missile ? 0.6 : 0.25 });
-                addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.35, 0)), b: pos, dur: 1.3, text: `-${sh.dmg} ${PART_LABEL[sh.part]}`, color: unitById(s, ev.target)?.side === 'player' ? '#ff6a4a' : '#ffd27a' });
+                addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.35, 0)), b: pos, dur: 1.3, text: `-${sh.dmg} ${PART_LABEL[sh.part]}${sh.on ? ' SHIELD' : ''}`, color: unitById(s, ev.target)?.side === 'player' ? '#ff6a4a' : '#ffd27a' });
                 audio.play(melee ? 'ram-hit' : indirect ? 'mortar-impact' : missile ? 'missile-impact' : 'armor-hit', { gain: 0.9 });
-                const part = sh.part;
-                mutateShown((c) => { const u = c.units.find((x) => x.id === ev.target)!; u.hp[part] = Math.max(0, u.hp[part] - sh.dmg); });
+                const part: PartSlot = sh.part === 'pack' ? 'body' : sh.part;
+                mutateShown((c) => { const u = c.units.find((x) => x.id === hitId)!; u.hp[part] = Math.max(0, u.hp[part] - sh.dmg); });
                 if (sh.partLost) {
                   audio.play('part-tear');
-                  addFx({ kind: 'debris', a: pos, b: pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0, (Math.random() - 0.5) * 1.6)), dur: 1.4, part, unit: ev.target });
+                  addFx({ kind: 'debris', a: pos, b: pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0, (Math.random() - 0.5) * 1.6)), dur: 1.4, part, unit: hitId });
                   addFx({ kind: 'smoke', a: pos, b: pos, dur: 2.2, size: 0.35 });
-                  g.note(`${name(ev.target)} loses its ${PART_LABEL[part].toLowerCase()}.`, 'note');
-                  const tgt = unitById(s, ev.target);
+                  g.note(`${name(hitId)} loses its ${PART_LABEL[part].toLowerCase()}.`, 'note');
+                  const tgt = unitById(s, hitId);
                   if (tgt?.side === 'player') void audio.voice(`${tgt.pilot}-hit`).catch(() => {});
                 }
               } else {
@@ -174,6 +185,95 @@ function start(ev: GameEvent): Track {
         },
         done: () => { if (!ev.counter) releaseCamera(); },
       };
+    }
+    case 'cookOff': {
+      const pos = partPos(ev.unit, 'pack');
+      audio.play('explode-walker', { gain: 0.8 });
+      addFx({ kind: 'boom', a: pos, b: pos, dur: 0.9, size: 0.9 });
+      addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.6, 0)), b: pos, dur: 1.4, text: `COOK-OFF -${ev.dmg}`, color: '#ffb27a' });
+      g.note(`${name(ev.unit)}'s pack ammunition cooks off.`, 'note');
+      mutateShown((c) => {
+        const u = c.units.find((x) => x.id === ev.unit)!; u.hp.body = Math.max(0, u.hp.body - ev.dmg); u.ammo = 0;
+        for (const sp of ev.splash) { const o = c.units.find((x) => x.id === sp.target)!; o.hp.body = Math.max(0, o.hp.body - sp.dmg); }
+      });
+      return { t: 0, dur: 0.8, tick: () => {}, done: () => {} };
+    }
+    case 'pushed': {
+      const a = anims.get(ev.unit)!;
+      const from = { x: a.x, y: a.y, level: a.level };
+      const moves = ev.result !== 'collide';
+      const to = { x: ev.x, y: ev.y, level: levelAt(s, ev.x, ev.y) };
+      const pos = partPos(ev.unit, 'body');
+      if (ev.result === 'collide') { audio.play('armor-hit'); addFx({ kind: 'spark', a: pos, b: pos, dur: 0.4, size: 0.4 }); }
+      else audio.play('servo', { gain: 0.6 });
+      const label = { moved: 'PUSHED', fell: `FELL -${ev.dmg} LEGS`, water: 'INTO THE WATER', collide: `CRASH -${ev.dmg}` }[ev.result];
+      addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.5, 0)), b: pos, dur: 1.2, text: label, color: '#ffd27a' });
+      g.note(`${name(ev.unit)} is ${ev.result === 'collide' ? `slammed into ${ev.other ? name(ev.other) : 'the obstacle'}` : ev.result === 'fell' ? 'pushed off the ledge' : ev.result === 'water' ? 'pushed into the water' : 'pushed back'}.`, 'note');
+      return {
+        t: 0, dur: 0.35,
+        tick: (t) => { if (!moves) return; const k = Math.min(1, t / 0.3); a.x = from.x + (to.x - from.x) * k; a.y = from.y + (to.y - from.y) * k; a.level = from.level + (to.level - from.level) * k * k; },
+        done: () => {
+          if (moves) { a.x = to.x; a.y = to.y; a.level = to.level; }
+          if (ev.result === 'fell' || ev.result === 'water') addFx({ kind: 'dust', a: partPos(ev.unit, 'legs'), b: pos, dur: 1, size: 0.5, color: ev.result === 'water' ? '#8aa0a8' : '#7a7064' });
+          mutateShown((c) => {
+            const u = c.units.find((x) => x.id === ev.unit)!;
+            u.x = ev.x; u.y = ev.y;
+            if (ev.result === 'fell') u.hp.legs = Math.max(0, u.hp.legs - ev.dmg);
+            if (ev.result === 'collide') u.hp.body = Math.max(0, u.hp.body - ev.dmg);
+            if (ev.other) { const o = c.units.find((x) => x.id === ev.other)!; o.hp.body = Math.max(0, o.hp.body - ev.dmg); }
+            if (ev.obj) { const tl = c.tiles[ev.obj.y * c.w + ev.obj.x]!; tl.objHp = Math.max(0, tl.objHp - ev.obj.dmg); if (ev.obj.broken) { tl.obj = null; tl.t = 'rubble'; } }
+          });
+        },
+      };
+    }
+    case 'status': {
+      const pos = partPos(ev.unit, 'body');
+      const label = { pinned: 'PINNED', staggered: 'STAGGERED', down: 'KNOCKED DOWN', packOut: 'PACK OUT' }[ev.status];
+      addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.75, 0)), b: pos, dur: 1.3, text: label, color: '#e9e4d6' });
+      if (ev.status === 'down') { const a = anims.get(ev.unit); if (a) a.hit = 1; audio.play('armor-hit', { gain: 0.6 }); }
+      g.note(`${name(ev.unit)}: ${label.toLowerCase()}.`, 'note');
+      return { t: 0, dur: 0.4, tick: () => {}, done: () => {} };
+    }
+    case 'smoke': {
+      const au = shownUnit(ev.unit);
+      const a = anims.get(ev.unit)!;
+      if (au) a.facing = facingTo(au, ev);
+      const m = muzzlePos(ev.unit, 'P');
+      const land = tileToWorld(ev.x, ev.y, levelAt(s, ev.x, ev.y));
+      audio.play('mortar-launch');
+      addFx({ kind: 'flash', a: m, b: m, dur: 0.09, size: 0.35 });
+      addFx({ kind: 'shell', a: m, b: land, dur: 0.9, color: '#d8d8d0' });
+      g.note(`${name(ev.unit)} lays a smoke screen.`, 'player');
+      let laid = false;
+      return {
+        t: 0, dur: 1.2,
+        tick: (t) => { if (t > 0.9 && !laid) { laid = true; for (const p of ev.tiles) { const w = tileToWorld(p.x, p.y, levelAt(s, p.x, p.y)); w.y += 0.5; addFx({ kind: 'smoke', a: w, b: w, dur: 2.5, size: 0.9 }); } } },
+        done: () => mutateShown((c) => { c.smoke = c.smoke.filter((sm) => !ev.tiles.some((p) => p.x === sm.x && p.y === sm.y)).concat(ev.tiles.map((p) => ({ ...p, side: au?.side ?? 'player' }))); }),
+      };
+    }
+    case 'smokeClear': {
+      mutateShown((c) => { c.smoke = c.smoke.filter((sm) => sm.side !== ev.side); });
+      return { t: 0, dur: 0.05, tick: () => {}, done: () => {} };
+    }
+    case 'guard': {
+      g.note(`${name(ev.unit)} raises the shield over ${name(ev.target)}.`, 'player');
+      audio.play('servo', { gain: 0.5 });
+      return { t: 0, dur: 0.35, tick: () => {}, done: () => {} };
+    }
+    case 'overwatch': {
+      const a = anims.get(ev.unit)!;
+      a.facing = FACE_ANGLE[ev.dir];
+      g.note(`${name(ev.unit)} covers the lane to the ${{ N: 'north', E: 'east', S: 'south', W: 'west' }[ev.dir]}.`, unitById(s, ev.unit)?.side ?? 'note');
+      audio.play('servo', { gain: 0.5 });
+      return { t: 0, dur: 0.35, tick: () => {}, done: () => mutateShown((c) => { const u = c.units.find((x) => x.id === ev.unit)!; u.facing = ev.dir; }) };
+    }
+    case 'standDown': {
+      if (ev.reserve > 0 && unitById(s, ev.unit)?.side === 'player') g.note(`${name(ev.unit)} stands down, ${ev.reserve} in reserve.`, 'note');
+      return { t: 0, dur: 0.05, tick: () => {}, done: () => {} };
+    }
+    case 'holdFire': {
+      g.note(`${name(ev.unit)}: ${ev.on ? 'hold fire' : 'return fire'}.`, 'note');
+      return { t: 0, dur: 0.05, tick: () => {}, done: () => {} };
     }
     case 'splash': {
       const pos = partPos(ev.target, 'body');

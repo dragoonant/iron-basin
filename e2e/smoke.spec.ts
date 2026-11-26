@@ -46,7 +46,7 @@ test('the attack preview shows engine numbers and firing resolves', async ({ pag
   // Walk the AI forward until a Lantern can fire, then open the preview through the tile taps.
   let opened = false;
   for (let i = 0; i < 80 && !opened; i++) {
-    const t = await ib(page, `(() => { const s = window.__ib.state(); if (s.live.phase !== 'player') { window.__ib.autoplay(1, 0); return null; } const a = window.__ib.suggest(); if (a && a.type === 'attack') return a; window.__ib.autoplay(1, 0); return null; })()`) as { unit: string; target: string } | null;
+    const t = await ib(page, `(() => { const s = window.__ib.state(); if (s.live.phase !== 'player') { window.__ib.autoplay(1, 0); return null; } const a = window.__ib.suggest(); if (a && a.type === 'fire') return a; window.__ib.autoplay(1, 0); return null; })()`) as { unit: string; target: string } | null;
     if (!t) continue;
     const pos = await ib(page, `(() => { const s = window.__ib.state().live; const u = s.units.find((x) => x.id === '${t.unit}'), v = s.units.find((x) => x.id === '${t.target}'); return [u.x, u.y, v.x, v.y]; })()`) as number[];
     await ib(page, `window.__ib.tapTile(${pos[0]}, ${pos[1]})`);
@@ -56,7 +56,29 @@ test('the attack preview shows engine numbers and firing resolves', async ({ pag
   await expect(page.getByTestId('attack-panel')).toBeVisible();
   await expect(page.getByTestId('attack-panel')).toContainText('%');
   const before = await ib(page, 'window.__ib.state().live.turnCount');
-  await page.locator('[data-testid^=fire-]').first().click();
+  await expect(page.getByTestId('attack-panel')).toContainText('DP');
+  const fireable = page.locator('button[data-testid^=fire-], [data-testid^=fire-] button[data-testid^=call-]');
+  await fireable.first().click();
   await ib(page, 'window.__ib.skip()');
   expect(await ib(page, 'window.__ib.state().live.turnCount')).toBe((before as number) + 1);
+});
+
+test('drive and facing: a pivot costs 1, re-facing right after a walk is free', async ({ page }) => {
+  await toBattle(page);
+  await ib(page, 'window.__ib.tapTile(6, 16)');
+  await expect(page.getByTestId('drive-marlow')).toContainText('4 left');
+  await page.click('[data-testid=face-E]');
+  await ib(page, 'window.__ib.skip()');
+  await expect(page.getByTestId('drive-marlow')).toContainText('3 left');
+  await ib(page, 'window.__ib.tapTile(6, 14)');
+  await ib(page, 'window.__ib.skip()');
+  await expect(page.getByTestId('drive-marlow')).toContainText('2 left');
+  await expect(page.getByTestId('facing')).toContainText('free');
+  await page.click('[data-testid=face-W]');
+  await ib(page, 'window.__ib.skip()');
+  const m = await ib(page, 'window.__ib.state().live.units.find((u) => u.id === "marlow")') as { x: number; y: number; facing: string; drive: number };
+  expect([m.x, m.y, m.facing, m.drive]).toEqual([6, 14, 'W', 2]);
+  await page.click('[data-testid=stand-down]');
+  const r = await ib(page, 'window.__ib.state().live.units.find((u) => u.id === "marlow").reserve');
+  expect(r).toBe(2);
 });

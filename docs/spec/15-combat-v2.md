@@ -4,12 +4,13 @@
 
 **How it lands.** The engine still runs spec 10 until slice 5b. Each id here has a test named by it in `tests/v2.test.ts`, pending (`it.todo`) until its slice lands, then real (`tests/coverage.test.ts` checks both files). When a slice lands, the spec 10 ids it supersedes (table below) are deleted from spec 10 in the same commit. Ids marked *(tune)* change only with a `sim` or `bench:ai` result in `80-sim.md` (KB rule 30).
 
-| Slice | Ids |
-|---|---|
-| 5b core loop | DRV-1..9, HIT-1..4, MOD-1..9, FAC-1..6 |
-| 5c maneuvers and field | MAN-1..12, FLD-1..8 |
-| 5d reactions | RCT-1..7 |
-| 5e nerve | NRV-1..7 |
+| Slice | Ids | State |
+|---|---|---|
+| 5b core loop | DRV-1..9, HIT-1..4, MOD-1..9, FAC-1..6, RCT-1..7, FLD-1, FLD-2, FLD-6, FLD-8, MAN-10 | landed 2026-11-26 |
+| 5c maneuvers and field | MAN-1..9, MAN-11, MAN-12, FLD-3..5, FLD-7 | next |
+| 5e nerve | NRV-1..7 (the Steady and Shaken bands of HIT-2 already count; nerve does not change yet) | |
+
+Reactions moved from 5d into 5b: once drive exists, the automatic counter has to become reserve-paid return fire, and the modes need push, knockdown, smoke, guard and overwatch to mean anything.
 
 | Spec 10 id | Superseded by |
 |---|---|
@@ -35,7 +36,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - **DRV-6** **Reserve.** When a walker stands down, or its side's phase ends, its reserve becomes the drive it has left, capped at `drive.reserveCap`. Reserve pays for reactions (RCT) in the enemy phase. When the walker's own phase starts, its reserve goes to 0 before DRV-1. Every walker starts the battle with `drive.startReserve`.
 - **DRV-7** Overweight (WLK-2) no longer reduces move; it costs `drive.overweight` (DRV-1). The overweight evasion penalty stays.
 - **DRV-8** **Undo** takes back a walker's last walk, refunding its DP and its facing, while all of these hold: it is still the same phase; the walker has given no order since; the walk drew no reaction (RCT-3); the tile it left is free.
-- **DRV-9** `legalActions` lists every walk, fire, maneuver, undo and stand down the walker can afford, plus `endPhase` (ARCH-2).
+- **DRV-9** `legalActions` lists every walk, fire, maneuver, undo and stand down the walker can afford, plus `endPhase` (ARCH-2). Hold fire (RCT-6) is a switch, not an order, and is not listed.
 
 ## 2. To hit and damage (HIT)
 - **HIT-1** A roll's chance = base accuracy + arm accuracy + pilot skill + modifiers, clamped to `hitMin`..`hitMax`. Base accuracy is the weapon's `acc` plus the mode's `acc`, or the mode or maneuver's `baseAcc` when it has one. Arm accuracy is that of the arm holding the weapon, or of the arm that makes the maneuver; pack weapons use none.
@@ -59,7 +60,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - **FAC-2** **Arc** of an attacker seen from a target: let *a* be how far the attacker is along the target's facing and *c* how far across it (absolute). **Front** when a > c; **rear** when −a > c; otherwise **side**: the right side if the attacker lies clockwise of the facing (N→E, E→S, S→W, W→N), else the left.
 - **FAC-3** Side hits double (`facing.sideArmFactor`) the weight of the arm on that side. Rear hits, hits on a knocked-down walker and all indirect fire draw from `hitWeights.rear`, where the backpack can be hit. A walker with `pack-none`, or whose pack is already out, redraws a pack hit as body.
 - **FAC-4** A pack hit's damage goes to the body. Then, if the pack has `cookOff` and ammo left, it **cooks off**: `cookOff.self` more to the body, `cookOff.adjacent` to the body of every walker next to it, and its ammo goes to 0. Any other pack is **out** for the battle (no Mark, Patch, Tow, Spotting).
-- **FAC-5** A shield in the left hand cuts damage by its `guard` percentage to the body and left arm, only against direct and melee fire from the front arc or the left side, while the left arm stands. Indirect fire, splash, pushes, falls and cook-offs are never cut.
+- **FAC-5** A shield in the left hand cuts damage by its `guard` percentage to the body and left arm, only against direct and melee fire from the front arc or the left side, while the left arm stands. Indirect fire, splash, pushes, falls, cook-offs and hits on the backpack are never cut.
 - **FAC-6** The arc to-hit bonus does not apply to indirect fire, which already uses the rear weights.
 
 ## 5. Maneuvers (MAN)
@@ -78,8 +79,8 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 
 ## 6. Reactions (RCT)
 - **RCT-1** Reactions happen in the enemy phase, cost reserve (DRV-6), and never draw reactions of their own.
-- **RCT-2** **Return fire**: when a direct or melee roll (a fire mode or an attack maneuver) against a walker ends and the walker stands, it fires back once if all hold: it has reserve 1 or more; the attacker is in its front arc; it is not knocked down, not Shaken, not on hold fire; one of its usable hand weapons reaches the attacker (range, line of sight; melee only adjacent). It uses that weapon's cheapest firing mode (lowest `dp` with `shots` > 0, first listed on a tie), picking the weapon with the higher expected damage; it fires at −`counterPenalty`; it costs 1 reserve. A multi-shot attack draws one return fire, after its last shot.
-- **RCT-3** **Overwatch** (Cover lane): the lane is the straight line of tiles from the walker in the direction of the chosen tile, out to the weapon's `max`. The walker turns to face it. Until its next phase, the first time an enemy **walk** enters a lane tile that the walker can see and that is in range, the walker fires that weapon's cheapest mode at that tile for 1 reserve, before the walk goes on. A hit on the legs ends the walk on that tile. Overwatch fires once; it does not fire with reserve 0 or while Shaken.
+- **RCT-2** **Return fire**: when a direct or melee roll (a fire mode or an attack maneuver) against a walker ends and the walker stands, it fires back once if all hold: it has reserve 1 or more; the attacker is in its front arc; it is not knocked down, not Shaken, not on hold fire; one of its usable hand weapons other than a shield reaches the attacker (range, line of sight; melee only adjacent). It uses that weapon's cheapest firing mode (lowest `dp` with `shots` > 0, first listed on a tie), picking the weapon with the higher expected damage; it fires at −`counterPenalty`; it costs 1 reserve. A multi-shot attack draws one return fire, after its last shot.
+- **RCT-3** **Overwatch** (Cover lane): the lane is the straight line of tiles from the walker in the direction of the chosen tile, out to the weapon's `max`. The walker turns to face it. Until its next phase, the first time an enemy **walk** enters a lane tile that the walker can see and that is in range, the walker fires that weapon's cheapest mode at that tile for 1 reserve, before the walk goes on. A hit on the legs, a knockdown or a push ends the walk on that tile, facing the way of its last step. Overwatch fires once; it does not fire with reserve 0 or while Shaken. The lane runs from wherever the overwatcher stands, and only tiles in its front arc count. A walk is not fired on in a tile that holds another walker (it is passing through an ally).
 - **RCT-4** **Guard** (shield): set on an adjacent ally. Until the guard's next phase, rolls at that ally from the guard's front arc, of direct or melee fire, roll against the ally as usual but every hit lands on the guard's left arm, and FAC-5 applies to it. Guard ends if the two are no longer adjacent or the guard's left arm is lost.
 - **RCT-5** Brace, Plant and Guard cost nothing more after the order.
 - **RCT-6** **Hold fire** is a per-walker switch, off by default and changeable at no cost in the walker's own phase; it turns off RCT-2 only.
@@ -95,7 +96,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - **FLD-3** **Shunt wagon** (2 DP): a walker on a rail tile (`rails` in the mission) next to a wagon on the same rail line, along the line, sends the wagon rolling away from it along the rails. It moves one tile at a time, up to `wagon.roll` tiles, and stops before the end of the rails or an object (both take `wagon.collide`). If the next tile holds a walker, that walker takes `wagon.dmg` to the body and is pushed off the track sideways (FLD-1, towards lower x first, else higher x, else a collision) and knocked down; the wagon stops before it.
 - **FLD-4** Rolling wagons carry their HP; a wagon broken by a collision becomes rubble where it stands.
 - **FLD-5** **Container stacks** (`stacks` in the mission): a stack at `stack.toppleAt` HP or less, but above 0, after a hit or a collision **topples** away from what hit it. The stack tile becomes rubble. Each of the next `stack.reach` tiles beyond: a walker there takes `stack.dmg` to the body and is knocked down; an object there takes `stack.dmg`; a free tile becomes rubble. Tiles off the map are skipped.
-- **FLD-6** **Smoke**: the chosen tile and every tile within `smokeRadius` (a 3×3 square). A smoke tile blocks line of sight when it lies between attacker and target (MAP-4), and a walker standing in smoke has cover (MAP-5). Smoke clears when the firer's side's next phase starts.
+- **FLD-6** **Smoke**: fired at a tile in the mortar's range that the firer or an ally can see (ATK-5); it covers that tile and every tile within `smokeRadius` (a 3×3 square, clipped to the field). A smoke tile blocks line of sight when it lies between attacker and target (MAP-4), and a walker standing in smoke has cover (MAP-5). Smoke clears when the firer's side's next phase starts.
 - **FLD-7** Smoke, rails and stacks are in the plain-JSON state: `smoke` as a list of tiles with the side that laid them; rails and stacks as tile flags.
 - **FLD-8** Pushes, falls, collisions, rolling wagons, topples and cook-offs are not attacks: they never draw reactions and never miss.
 
@@ -120,12 +121,15 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - RULING: DRV-8 | undo only while nothing was learned | a walk that drew overwatch revealed and rolled something; undoing it would let the player fish for misses.
 - RULING: HIT-2 | Steady and Shaken modify every roll, reactions included | nerve should be felt on every shot, not only on your own orders.
 - RULING: MOD-1, carbine Cover lane | 1 DP, not the 2 in the design | 2 DP plus the 1 reserve the shot costs used 3 of 4 drive; overwatch would never be picked.
-- RULING: MOD-5 | Drive-through needs the last walk to be straight and to end facing the target | readable from the board: an arrow straight into the enemy.
+- RULING: MOD-5 | Drive-through needs the last walk to be straight, with the target on the next tile of that line | readable from the board: an arrow straight into the enemy.
 - RULING: FAC-2 | the exact diagonal counts as side | stepping round a corner should pay off.
 - RULING: FAC-3 | indirect fire and knocked-down walkers use the rear weights | shells come from above, and a walker on the ground shows its back.
 - RULING: FAC-5 | the shield does not cut indirect fire | top-down fire gets round a shield; v1 let it, so mortars were weak against shields.
 - RULING: MAN-6 | a grab ends when the grabber's next phase starts | otherwise a grab is a permanent lock for 1 DP.
 - RULING: MAN-11 | Tow moves the tower one tile away and drags the ally after it | "pull an adjacent ally toward you" cannot move an ally that is already adjacent.
+- RULING: RCT-2 | return fire is at -15 to hit *(tune)* | carried over from spec 10's counter (sim 2026-11-24, `80-sim.md`): without it every attack traded evenly and the outnumbered side always lost.
+- RULING: RCT-2 | shields never return fire | a shield guards (RCT-4); a Bash in reply would make every shield walker a free melee counter.
+- RULING: RCT-4 | an effect lands on each walker that took a hit | a guard who takes a Shove on the shield is the one pushed.
 - RULING: RCT-2 | return fire is the cheapest mode of the best weapon | a reaction is a snap answer, not a full burst; the choice of weapon is kept from spec 10's ATK-8 ruling.
 - RULING: RCT-3 | overwatch fires on walks only, not pushes, tows or rolls | a push is not a choice the moving walker made.
 - RULING: FLD-3 | a walker hit by a wagon is pushed towards lower x first | deterministic and readable; both Marrow Yard lines run north-south.

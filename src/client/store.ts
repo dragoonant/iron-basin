@@ -3,10 +3,10 @@
 import { create } from 'zustand';
 import { chooseAction } from '../ai';
 import { applyResult, newCampaign, deployFrom, type Campaign } from '../engine/campaign';
-import { dist } from '../engine/grid';
-import { canTarget, moveRange, unitById, weapons } from '../engine/query';
+import { dirTo, dist } from '../engine/grid';
+import { canHitAny, faceToward, fireBlock, modeIn, modes, pivotCost, unitById, walkRange } from '../engine/query';
 import { legalActions, newBattle, step, view } from '../engine/step';
-import type { Action, BattleState, GameEvent, WeaponSlot } from '../engine/types';
+import type { Action, BattleState, Facing, GameEvent, HitSlot, WeaponSlot } from '../engine/types';
 import { audio } from './audio';
 import { readSave, writeSave, clearSave, type Envelope, type Screen as SaveScreen } from './save';
 
@@ -34,6 +34,8 @@ export interface ClientState {
   hover: { x: number; y: number } | null;
   target: string | null;
   targetObj: { x: number; y: number } | null;
+  /** A tile or ally mode waiting for its tile tap: Smoke, Cover lane, Guard. */
+  aim: { slot: WeaponSlot; mode: string } | null;
   feed: { text: string; side: 'player' | 'hostile' | 'note' }[];
   banner: { text: string; sub: string; until: number } | null;
   settings: Settings;
@@ -51,8 +53,10 @@ export interface ClientState {
   select: (id: string | null) => void;
   setHover: (p: { x: number; y: number } | null) => void;
   setTarget: (id: string | null) => void;
-  fire: (slot: WeaponSlot) => void;
-  fireObject: (slot: WeaponSlot) => void;
+  fire: (slot: WeaponSlot, mode: string, part?: HitSlot) => void;
+  fireObject: (slot: WeaponSlot, mode: string) => void;
+  setAim: (aim: { slot: WeaponSlot; mode: string } | null) => void;
+  face: (f: Facing) => void;
   finishBattle: () => void;
   retry: () => void;
   setCampaign: (c: Campaign) => void;
@@ -75,6 +79,7 @@ export const useGame = create<ClientState>((set, get) => ({
   hover: null,
   target: null,
   targetObj: null,
+  aim: null,
   feed: [],
   banner: null,
   settings: readSettings(),
@@ -94,7 +99,7 @@ export const useGame = create<ClientState>((set, get) => ({
     if (!r.ok) return false;
     const env = r.env;
     if (env.screen === 'battle' && env.battle) {
-      set({ campaign: env.campaign, preBattle: env.campaign, live: env.battle.snapshot, shown: env.battle.snapshot, seed: env.battle.seed, actions: env.battle.actions, queue: [], presenting: false, screen: 'battle', selected: null, target: null, feed: [{ text: `Resumed: round ${env.battle.snapshot.round}.`, side: 'note' }] });
+      set({ campaign: env.campaign, preBattle: env.campaign, live: env.battle.snapshot, shown: env.battle.snapshot, seed: env.battle.seed, actions: env.battle.actions, queue: [], presenting: false, screen: 'battle', selected: null, target: null, aim: null, feed: [{ text: `Resumed: round ${env.battle.snapshot.round}.`, side: 'note' }] });
     } else set({ campaign: env.campaign, screen: env.screen, live: null, shown: null });
     return true;
   },
@@ -102,7 +107,7 @@ export const useGame = create<ClientState>((set, get) => ({
     const c = get().campaign;
     const seed = (Date.now() % 100000) + 1;
     const b = newBattle('marrow-yard', seed, deployFrom(c));
-    set({ preBattle: c, live: b, shown: b, seed, actions: [], queue: [], presenting: false, selected: null, target: null, targetObj: null, feed: [{ text: 'Marrow Yard. Clear every Directorate walker.', side: 'note' }], screen: 'battle', banner: { text: 'YOUR PHASE', sub: 'ROUND 1', until: get().clock + 1.6 } });
+    set({ preBattle: c, live: b, shown: b, seed, actions: [], queue: [], presenting: false, selected: null, target: null, targetObj: null, aim: null, feed: [{ text: 'Marrow Yard. Clear every Directorate walker.', side: 'note' }], screen: 'battle', banner: { text: 'YOUR PHASE', sub: 'ROUND 1', until: get().clock + 1.6 } });
     audio.play('turn-player');
     get().save();
   },
@@ -116,47 +121,78 @@ export const useGame = create<ClientState>((set, get) => ({
     return true;
   },
   select: (id) => {
-    set({ selected: id, target: null, targetObj: null });
+    set({ selected: id, target: null, targetObj: null, aim: null });
     const u = id ? get().live?.units.find((x) => x.id === id) : null;
     if (u && u.side === 'player') { audio.play('select'); void audio.voice(`${u.pilot}-select`).catch(() => {}); }
   },
   setHover: (p) => set({ hover: p }),
-  setTarget: (id) => set({ target: id, targetObj: null }),
+  setTarget: (id) => set({ target: id, targetObj: null, aim: null }),
+  setAim: (aim) => set({ aim, target: null, targetObj: null }),
   tapTile: (x, y) => {
     const st = get();
     const live = st.live;
     if (!live || live.result || st.presenting || st.queue.length || live.phase !== 'player') return;
     const here = live.units.find((u) => u.alive && u.x === x && u.y === y) ?? null;
     const sel = st.selected ? unitById(live, st.selected) : null;
-    // 1. A legal move for the selected walker.
-    if (sel && sel.side === 'player' && !sel.moved && !sel.acted && !here) {
-      if (moveRange(live, sel).some((t) => t.x === x && t.y === y)) { audio.play('confirm'); st.dispatch({ type: 'move', unit: sel.id, x, y }); return; }
+    const mine = sel && sel.side === 'player' && sel.alive && !sel.done ? sel : null;
+    // 0. A tile or ally mode waiting for its tap (Smoke, Cover lane, Guard).
+    if (mine && st.aim) {
+      const mi = modeIn(mine, st.aim.slot, st.aim.mode);
+      if (here?.id === mine.id || !mi) { audio.play('cancel'); set({ aim: null }); return; }
+      if (mi.mode.target === 'ally' && here && here.side === 'player') {
+        if (st.dispatch({ type: 'fire', unit: mine.id, slot: st.aim.slot, mode: st.aim.mode, target: here.id })) { audio.play('confirm'); set({ aim: null }); }
+        else { audio.play('cancel'); st.note(fireBlock(live, mine, st.aim.slot, st.aim.mode, here) ?? 'cannot guard there'); }
+        return;
+      }
+      if (mi.mode.target === 'tile') {
+        if (st.dispatch({ type: 'fireAt', unit: mine.id, slot: st.aim.slot, mode: st.aim.mode, x, y })) { audio.play('confirm'); set({ aim: null }); }
+        else { audio.play('cancel'); st.note(mi.mode.effect === 'overwatch' ? 'A lane runs straight out from the walker, within range.' : 'Out of range or out of sight.'); }
+        return;
+      }
     }
-    // 2. An enemy the selected walker can fire on: open the attack preview.
-    if (sel && sel.side === 'player' && !sel.acted && here && here.side === 'hostile') {
-      if (weapons(sel).some((w) => canTarget(live, sel, w.slot, here))) { audio.play('ui-tick'); set({ target: here.id, targetObj: null }); return; }
+    // 1. A walk for the selected walker, facing the threat (Face buttons change it).
+    if (mine && !here && walkRange(live, mine).some((t) => t.x === x && t.y === y)) {
+      audio.play('confirm');
+      st.dispatch({ type: 'walk', unit: mine.id, x, y, facing: faceToward(live, mine, { x, y }) });
+      return;
     }
-    // 3. A breakable object in range.
+    // 2. An enemy the selected walker can fire on: open the fire panel.
+    if (mine && here && here.side === 'hostile' && canHitAny(live, mine, here)) { audio.play('ui-tick'); set({ target: here.id, targetObj: null }); return; }
+    // 3. A breakable object in range of a firing mode.
     const tile = live.tiles[y * live.w + x];
-    if (sel && sel.side === 'player' && !sel.acted && !here && tile?.obj && ['wagon', 'container', 'shed', 'barrier'].includes(tile.obj)) {
-      const ok = weapons(sel).some((w) => w.usable && (w.def.class === 'direct' || w.def.class === 'melee') && dist(sel, { x, y }) >= w.def.min && dist(sel, { x, y }) <= w.def.max);
-      if (ok) { audio.play('ui-tick'); set({ targetObj: { x, y }, target: null }); return; }
+    if (mine && !here && tile?.obj && ['wagon', 'container', 'shed', 'barrier'].includes(tile.obj)) {
+      const d = dist(mine, { x, y });
+      const can = modes(mine).some((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && !mine.fired.includes(m.slot) && m.dp <= mine.drive && d >= m.min && d <= m.max);
+      if (can) { audio.play('ui-tick'); set({ targetObj: { x, y }, target: null }); return; }
     }
     // 4. Otherwise select whatever stands there, or clear.
     if (here) st.select(here.id);
-    else { if (st.selected) audio.play('cancel'); set({ selected: null, target: null, targetObj: null }); }
+    else { if (st.selected) audio.play('cancel'); set({ selected: null, target: null, targetObj: null, aim: null }); }
   },
-  fire: (slot) => {
+  fire: (slot, mode, part) => {
     const st = get();
     if (!st.selected || !st.target) return;
     const u = st.live ? unitById(st.live, st.selected) : null;
     if (u?.side === 'player') void audio.voice(`${u.pilot}-attack`).catch(() => {});
-    if (st.dispatch({ type: 'attack', unit: st.selected, slot, target: st.target })) set({ target: null });
+    if (st.dispatch({ type: 'fire', unit: st.selected, slot, mode, target: st.target, ...(part ? { part } : {}) })) set({ target: null });
   },
-  fireObject: (slot) => {
+  fireObject: (slot, mode) => {
     const st = get();
     if (!st.selected || !st.targetObj) return;
-    if (st.dispatch({ type: 'attackObject', unit: st.selected, slot, x: st.targetObj.x, y: st.targetObj.y })) set({ targetObj: null });
+    if (st.dispatch({ type: 'fireAt', unit: st.selected, slot, mode, x: st.targetObj.x, y: st.targetObj.y })) set({ targetObj: null });
+  },
+  /** FAC-1: re-face for free while the last walk can still be taken back (undo, then the same walk); otherwise Pivot. */
+  face: (f) => {
+    const st = get();
+    const live = st.live;
+    const u = live && st.selected ? unitById(live, st.selected) : null;
+    if (!live || !u || u.side !== 'player' || u.done || u.facing === f) return;
+    const lw = u.lastWalk;
+    if (lw && !lw.reacted) {
+      const at = { x: u.x, y: u.y };
+      if (st.dispatch({ type: 'undoWalk', unit: u.id })) { get().dispatch({ type: 'walk', unit: u.id, x: at.x, y: at.y, facing: f }); return; }
+    }
+    if (u.drive >= pivotCost()) st.dispatch({ type: 'pivot', unit: u.id, facing: f });
   },
   finishBattle: () => {
     const { live, campaign } = get();
@@ -172,7 +208,7 @@ export const useGame = create<ClientState>((set, get) => ({
     const st = get();
     if (st.screen === 'title') return;
     const screen: SaveScreen = st.screen === 'next' ? 'hangar' : st.screen;
-    const env: Envelope = { v: 1, savedAt: Date.now(), screen, campaign: st.screen === 'battle' ? (st.preBattle ?? st.campaign) : st.campaign, battle: st.screen === 'battle' && st.live ? { seed: st.seed, actions: st.actions, snapshot: st.live } : null };
+    const env: Envelope = { v: 2, savedAt: Date.now(), screen, campaign: st.screen === 'battle' ? (st.preBattle ?? st.campaign) : st.campaign, battle: st.screen === 'battle' && st.live ? { seed: st.seed, actions: st.actions, snapshot: st.live } : null };
     if (st.screen === 'debrief' || st.screen === 'hangar' || st.screen === 'next') env.battle = null;
     set({ saveError: writeSave(env) });
   },
@@ -183,7 +219,10 @@ export function aiOrder(live: BattleState): Action {
   return chooseAction(view(live, 'hostile'), 'normal');
 }
 
-export function allActed(live: BattleState): boolean {
-  return live.units.filter((u) => u.alive && u.side === 'player').every((u) => u.acted);
+export function allDone(live: BattleState): boolean {
+  return live.units.filter((u) => u.alive && u.side === 'player').every((u) => u.done);
 }
+/** Is a re-facing free right now (the last walk can be redone with the new facing)? */
+export const freeFacing = (live: BattleState, id: string): boolean => { const u = unitById(live, id); return !!u?.lastWalk && !u.lastWalk.reacted; };
+export { dirTo };
 export { legalActions };

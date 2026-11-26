@@ -57,7 +57,7 @@ function Walker({ u }: { u: Unit }) {
       ring.visible = false;
     } else {
       ring.visible = true;
-      ring.material = shown.side === 'player' && shown.acted ? ringMats.spent : ringMats[u.side];
+      ring.material = shown.side === 'player' && shown.done ? ringMats.spent : ringMats[u.side];
     }
     // Publish anchors for the presenter's muzzle flashes and hit points.
     model.root.updateMatrixWorld(true);

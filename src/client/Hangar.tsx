@@ -97,7 +97,7 @@ export function Hangar() {
               <button key={k} className="fire-row" onClick={() => apply(trial, 'salvage')}>
                 <span className="fr-w">{items.length > 1 ? `${items.length}× ` : ''}{itemName(it.kind, it.id)}{it.paint === 'camo' ? ' ◆' : ''}</span>
                 <span className="fr-c">{mx ? `${it.hp}/${mx}` : ''}</span>
-                {after && <span className="fr-n">move <Delta a={sum.move} b={after.move} /> · evade <Delta a={sum.evade} b={after.evade} /> · weight <Delta a={sum.weight} b={after.weight} invert />/{after.power}{after.overweight ? ' OVER' : ''}</span>}
+                {after && <span className="fr-n">drive <Delta a={sum.drive} b={after.drive} /> · move <Delta a={sum.move} b={after.move} /> · evade <Delta a={sum.evade} b={after.evade} /> · weight <Delta a={sum.weight} b={after.weight} invert />/{after.power}{after.overweight ? ' OVER' : ''}</span>}
               </button>
             );
           })}
@@ -108,7 +108,7 @@ export function Hangar() {
       </div>
       <div className="card slots" data-testid="slots">
         <div className="ap-title">{pilotDef(pilot).call} · {pilotDef(pilot).name}</div>
-        <div className="stats"><b>MOVE</b> {sum.move} <b>EVADE</b> {sum.evade} <b>WEIGHT</b> <span className={sum.overweight ? 'ddown' : ''}>{sum.weight}/{sum.power}{sum.overweight ? ' OVERWEIGHT: move −1, evade −10' : ''}</span></div>
+        <div className="stats"><b>DRIVE</b> {sum.drive} <b>MOVE</b> {sum.move} <b>EVADE</b> {sum.evade} <b>WEIGHT</b> <span className={sum.overweight ? 'ddown' : ''}>{sum.weight}/{sum.power}{sum.overweight ? ` OVERWEIGHT: drive −${RULES.drive.overweight}, evade −${RULES.overweightEvade}` : ''}</span></div>
         {SLOTS.map((s) => {
           const id = slotId(r, s.slot);
           const part = s.part;
@@ -129,7 +129,7 @@ export function Hangar() {
         })}
         {repairAllCost(r) > 0 && <button className="wide" data-testid="repair-all" onClick={() => { let cc: Campaign | string = c; for (const p of ['body', 'armL', 'armR', 'legs'] as PartSlot[]) if (typeof cc !== 'string' && repairCost(cc.roster.find((x) => x.pilot === pilot)!, p) > 0) cc = repair(cc, pilot, p); apply(cc, 'repair'); }}>Repair everything ({repairAllCost(r)} cr)</button>}
         {msg && <div className="save-warn">{msg}</div>}
-        <div className="weps">{sum.weapons.map((w) => <div key={w.slot} className="wep"><span className="ws">{w.slot === 'P' ? 'PACK' : w.slot === 'L' ? 'L.HAND' : 'R.HAND'}</span><span className="wn">{w.name}</span><span className="wd">{w.cls === 'shield' ? 'guard' : `${w.range[0]}-${w.range[1]} · ${w.shots}×${w.dmg} · acc ${w.acc}`}</span></div>)}</div>
+        <div className="weps">{sum.weapons.map((w) => <div key={w.slot} className="wep"><span className="ws">{w.slot === 'P' ? 'PACK' : w.slot === 'L' ? 'L.HAND' : 'R.HAND'}</span><span className="wn">{w.name}</span><span className="wd">{w.cls === 'shield' ? 'guard' : `${w.range[0]}-${w.range[1]} · acc ${w.acc}`} · {w.modes.map((m) => `${m.name} ${m.dp} DP${m.shots ? ` ${m.shots}×${m.dmg}` : ''}`).join(' · ')}</span></div>)}</div>
       </div>
       <div className="hangar-foot">
         <button className="ghost" onClick={() => useGame.getState().setScreen('title')}>Title</button>

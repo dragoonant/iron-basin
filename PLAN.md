@@ -38,7 +38,7 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | Q14 | Nerve 0-10; pilots start at 6-8; Steady at 8 or more, Shaken at 2 or less *(tune)* |
 | Q15 | Marrow Yard keeps its map art; data adds rail lines (x 4, x 11) and container stacks; still 4 against 5 |
 | Q16 | The v1 AI is kept as `simple`, a bench opponent for AI v2 |
-| Q17 | v1 battle saves are discarded with a reason; v1 hangar saves migrate |
+| Q17 | A v1 save taken mid-battle reopens at the briefing with the company as it stood before that battle (the battle restarts under v2 rules) and says so; other v1 saves open as they are |
 | Q11 | Publish the playable as a private claude.ai Artifact (KB rule 28) and on Pages once the repo exists |
 
 ## Milestones
@@ -49,5 +49,5 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M2 | Client: board, part-kit walkers, terrain, HUD, close-ups, save | done 2026-11-24 |
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
 | M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
-| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | in progress: 5a (spec 15 and data) done 2026-11-25; next 5b |
+| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | in progress: 5a (spec and data) done 2026-11-25; 5b (core loop, reactions, push, smoke) done 2026-11-26; next 5c |
 | M6 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow, a swing bridge); pilot levels; fog of war | after M5 |

@@ -2,9 +2,7 @@ import partsJson from '../data/parts.json';
 import pilotsJson from '../data/pilots.json';
 import rulesJson from '../data/rules.json';
 import missionJson from '../data/mission-01.json';
-import type { Build, ObjKind, Side, Terrain, WeaponClass } from './types';
-
-export type Facing = 'N' | 'E' | 'S' | 'W';
+import type { Build, Facing, ObjKind, Side, Terrain, WeaponClass } from './types';
 
 export interface BodyDef { name: string; hp: number; power: number; weight: number; kit: string; size: string; drive: number; maneuvers: string[] }
 export interface ArmDef { name: string; hp: number; acc: number; weight: number; kit: string; size: string; maneuvers: string[] }

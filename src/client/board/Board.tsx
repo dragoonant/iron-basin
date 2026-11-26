@@ -9,7 +9,7 @@ import { FxLayer } from './Fx';
 import { Picks } from './Picks';
 import { tex } from './textures';
 import { Walkers } from './Walkers';
-import { live } from './world';
+import { live, tileToWorld } from './world';
 
 function Atmosphere() {
   const { scene, gl } = useThree();
@@ -61,6 +61,38 @@ function Rain() {
   return <primitive object={mesh} />;
 }
 
+/** FLD-6: smoke screens that stand on their tiles until the side that laid them starts its next phase. */
+function SmokeTiles() {
+  const { group, puffs } = useMemo(() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d')!;
+    const gr = g.createRadialGradient(32, 32, 3, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(196,196,188,0.8)'); gr.addColorStop(1, 'rgba(180,180,172,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    const map = new THREE.CanvasTexture(c);
+    const group = new THREE.Group();
+    const puffs = Array.from({ length: 27 * 3 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, depthWrite: false, transparent: true, opacity: 0.85 })); sp.visible = false; sp.raycast = () => {}; group.add(sp); return sp; });
+    return { group, puffs };
+  }, []);
+  useFrame(({ clock }) => {
+    const sm = useGame.getState().shown?.smoke ?? [];
+    const st = useGame.getState().shown;
+    const t = clock.elapsedTime;
+    puffs.forEach((p, i) => {
+      const tileI = Math.floor(i / 3), k = i % 3;
+      const m = sm[tileI];
+      if (!m || !st) { p.visible = false; return; }
+      const w = tileToWorld(m.x, m.y, st.tiles[m.y * st.w + m.x]?.h ?? 0);
+      const ph = tileI * 1.7 + k * 2.1;
+      p.position.set(w.x + Math.sin(ph + t * 0.3) * 0.25, w.y + 0.45 + k * 0.35 + Math.sin(t * 0.5 + ph) * 0.05, w.z + Math.cos(ph + t * 0.25) * 0.25);
+      const sc = 1.35 + k * 0.25 + Math.sin(t * 0.4 + ph) * 0.08;
+      p.scale.set(sc, sc, sc);
+      p.visible = true;
+    });
+  });
+  return <primitive object={group} />;
+}
+
 function Clock() {
   useFrame((_, dt) => { if (!(window as unknown as { __ibManual?: boolean }).__ibManual) update(Math.min(dt, 0.1)); });
   return null;
@@ -79,6 +111,7 @@ export function Board() {
       <Picks s={shown} />
       <Walkers />
       <FxLayer />
+      <SmokeTiles />
       <Rain />
     </Canvas>
   );

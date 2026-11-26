@@ -27,3 +27,22 @@ Why step 4: the player side dealt almost twice the damage but every attack drew 
 determinism (seed 7 replay): ok
 
 Salvage per win is high (about 21 items) because bodies usually fall before limbs; the hangar groups the inventory by part. Revisit if the hangar economy feels flooded.
+
+## Combat v2, slice 5b (2026-11-26): the structure alone, no number changed
+Drive points, fire modes, facing, reserve-paid return fire, overwatch, guard, push, knockdown and smoke (spec 15), with the same weapon, part and pilot numbers as pass 1. The AI is the one-pass planner in `src/ai/index.ts` (walk, best package of up to two modes, turn, stand down); AI v2 is slice 5f.
+
+| battles | player win | timeouts | median rounds | player walkers lost | hostile lost | salvage per win | violations |
+|---|---|---|---|---|---|---|---|
+| 200 | 41.5% | 1 | 11 | 3.12 | 3.77 | 20.4 | 0 |
+
+| seat | battles | normal wins |
+|---|---|---|
+| hostile (normal vs random) | 100 | 100 |
+| player (normal vs random) | 100 | 100 |
+| **both** | 200 | **100.0%** |
+
+All three targets for M5 hold already: AI vs AI 30-45% (41.5%), median rounds 12 or fewer (11), normal vs random at least 90% (100%). Timeouts fell from 17 to 1: with two weapons firing a phase, battles end sooner.
+
+**Orders used** (share of 23,450 non-end orders): walk 47.3%, Double tap 14.7%, Burst 8.1%, Snap 6.1%, High explosive 4.9%, Strike 4.3%, Shot 4.0%, Braced shot 3.7%, Patch 2.1%, Bash 2.0%, Salvo 1.6%, Pivot 0.6%, Shove 0.3%, Drive-through 0.3%.
+
+**Never picked by the AI:** Aimed pair, Suppress, Smoke, Cover lane, Guard, Tagged salvo (needs Mark, slice 5c). The first five are a gap in the one-pass AI, which scores only expected damage: it has no value for a called part, a pin, a screen, a lane or a guard. They are the first job of AI v2 (5f). Under 3% (the 5g bar) but picked: Pivot, Shove, Drive-through. No number is changed for them until AI v2 can use them; then 5g decides.

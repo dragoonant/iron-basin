@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { RULES } from '../../engine/data';
-import { dist } from '../../engine/grid';
-import { canTarget, moveRange, stats, unitById, weapons } from '../../engine/query';
+import { ahead, dist, FACINGS, inBounds } from '../../engine/grid';
+import { canHitAny, indirectSight, laneTiles, modeIn, modes, stats, unitById, walkRange } from '../../engine/query';
 import { reachable } from '../../engine/grid';
-import type { BattleState } from '../../engine/types';
+import type { BattleState, WeaponSlot } from '../../engine/types';
 import { useGame } from '../store';
 import { LEVEL_H, tileToWorld } from './world';
 
@@ -21,23 +21,32 @@ function pencilSquare(): THREE.Texture {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-const C = { reach: new THREE.Color('#6fb4ff'), target: new THREE.Color('#ff4a32'), sel: new THREE.Color('#ff9a2a'), path: new THREE.Color('#ffffff'), threat: new THREE.Color('#ff6a5a'), obj: new THREE.Color('#ffcf4a'), hover: new THREE.Color('#e9e4d6') };
+const C = { aim: new THREE.Color('#ffb04a'), lane: new THREE.Color('#ff7a1a'), reach: new THREE.Color('#6fb4ff'), target: new THREE.Color('#ff4a32'), sel: new THREE.Color('#ff9a2a'), path: new THREE.Color('#ffffff'), threat: new THREE.Color('#ff6a5a'), obj: new THREE.Color('#ffcf4a'), hover: new THREE.Color('#e9e4d6') };
 
 interface Mark { i: number; color: THREE.Color; scale: number }
 
-export function marksFor(s: BattleState, selected: string | null, hover: { x: number; y: number } | null, target: string | null, targetObj: { x: number; y: number } | null): Mark[] {
+export function marksFor(s: BattleState, selected: string | null, hover: { x: number; y: number } | null, target: string | null, targetObj: { x: number; y: number } | null, aim: { slot: WeaponSlot; mode: string } | null = null): Mark[] {
   const out: Mark[] = [];
   const idx = (x: number, y: number) => y * s.w + x;
   const sel = selected ? unitById(s, selected) : null;
+  // Every overwatch lane on the field, as faint orange pencil (RCT-3).
+  for (const o of s.units) if (o.alive) for (const p of laneTiles(s, o)) out.push({ i: idx(p.x, p.y), color: o.side === 'player' ? C.lane : C.threat, scale: 0.32 });
   if (sel && sel.alive) {
     if (sel.side === 'player' && s.phase === 'player') {
-      const reach = sel.moved || sel.acted ? [] : moveRange(s, sel);
+      const mi = aim ? modeIn(sel, aim.slot, aim.mode) : null;
+      if (mi && !sel.done) {
+        if (mi.mode.effect === 'smoke') { for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) { const d = dist(sel, { x, y }); if (d >= mi.min && d <= mi.max && indirectSight(s, sel, sel, { x, y })) out.push({ i: idx(x, y), color: C.aim, scale: 0.6 }); } }
+        else if (mi.mode.effect === 'overwatch') { for (const f of FACINGS) for (let n = 1; n <= mi.weapon.def.max; n++) { const p = ahead(sel, f, n); if (inBounds(s, p.x, p.y)) out.push({ i: idx(p.x, p.y), color: C.aim, scale: 0.6 }); } }
+        else for (const a of s.units) if (a.alive && a.side === sel.side && a.id !== sel.id && dist(a, sel) === 1) out.push({ i: idx(a.x, a.y), color: C.aim, scale: 1 });
+      }
+      const reach = sel.done || mi ? [] : walkRange(s, sel);
       for (const r of reach) out.push({ i: idx(r.x, r.y), color: C.reach, scale: 0.92 });
-      if (!sel.acted) {
-        for (const w of weapons(sel)) for (const t of s.units) if (canTarget(s, sel, w.slot, t)) out.push({ i: idx(t.x, t.y), color: C.target, scale: 0.98 });
-        for (const w of weapons(sel)) {
-          if (!w.usable || (w.def.class !== 'direct' && w.def.class !== 'melee')) continue;
-          for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) { const t = s.tiles[idx(x, y)]!; const d = dist(sel, { x, y }); if (hover && hover.x === x && hover.y === y && t.obj && RULES.objects[t.obj].breakable && d >= w.def.min && d <= w.def.max) out.push({ i: idx(x, y), color: C.obj, scale: 0.5 }); }
+      if (!sel.done && !mi) {
+        for (const t of s.units) if (t.alive && t.side !== sel.side && canHitAny(s, sel, t)) out.push({ i: idx(t.x, t.y), color: C.target, scale: 0.98 });
+        if (hover) {
+          const t = s.tiles[idx(hover.x, hover.y)];
+          const d = dist(sel, hover);
+          if (t?.obj && RULES.objects[t.obj].breakable && modes(sel).some((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && d >= m.min && d <= m.max)) out.push({ i: idx(hover.x, hover.y), color: C.obj, scale: 0.5 });
         }
       }
       // The path to the hovered reachable tile.
@@ -83,10 +92,10 @@ export function Picks({ s }: { s: BattleState }) {
     const st = g.shown;
     if (!st) return;
     const busy = g.presenting || g.queue.length > 0;
-    const key = `${busy}|${g.selected}|${g.hover?.x},${g.hover?.y}|${g.target}|${g.targetObj?.x},${g.targetObj?.y}|${st.turnCount}|${st.phase}`;
+    const key = `${busy}|${g.selected}|${g.hover?.x},${g.hover?.y}|${g.target}|${g.targetObj?.x},${g.targetObj?.y}|${g.aim?.slot}${g.aim?.mode}|${st.turnCount}|${st.phase}`;
     if (key === lastKey.current) return;
     lastKey.current = key;
-    const marks = busy ? [] : marksFor(st, g.selected, g.hover, g.target, g.targetObj);
+    const marks = busy ? [] : marksFor(st, g.selected, g.hover, g.target, g.targetObj, g.aim);
     const m = new THREE.Matrix4();
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     for (let i = 0; i < n; i++) overlay.setMatrixAt(i, zero);

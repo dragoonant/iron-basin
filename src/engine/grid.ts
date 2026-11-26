@@ -1,7 +1,7 @@
 import { RULES } from './data';
-import type { BattleState, Tile, Unit } from './types';
+import type { Arc, BattleState, Facing, Pos, Tile, Unit } from './types';
 
-export interface Pos { x: number; y: number }
+export type { Pos };
 export const key = (x: number, y: number): string => `${x},${y}`;
 export const inBounds = (s: BattleState, x: number, y: number): boolean => x >= 0 && y >= 0 && x < s.w && y < s.h;
 export const tileAt = (s: BattleState, x: number, y: number): Tile | null => (inBounds(s, x, y) ? s.tiles[y * s.w + x] ?? null : null);
@@ -25,24 +25,49 @@ export function line(a: Pos, b: Pos): Pos[] {
   return out;
 }
 
-/** MAP-4: containers, sheds and silos on an intermediate tile block sight. */
+export const smokeAt = (s: BattleState, x: number, y: number): boolean => s.smoke.some((m) => m.x === x && m.y === y);
+
+/** MAP-4: containers, sheds and silos on an intermediate tile block sight; so does smoke (FLD-6). */
 export function hasLos(s: BattleState, a: Pos, b: Pos): boolean {
   const pts = line(a, b);
   for (let i = 1; i < pts.length - 1; i++) {
     const p = pts[i]!;
     const t = tileAt(s, p.x, p.y);
     if (t?.obj && RULES.objects[t.obj].blocksSight) return false;
+    if (smokeAt(s, p.x, p.y)) return false;
   }
   return true;
 }
 
-/** MAP-5: the last tile before the target on the line holds a cover object. */
+/** MAP-5: the last tile before the target on the line holds a cover object; FLD-6: or the target stands in smoke. */
 export function hasCover(s: BattleState, attacker: Pos, target: Pos): boolean {
+  if (smokeAt(s, target.x, target.y)) return true;
   const pts = line(attacker, target);
   if (pts.length < 3) return false;
   const p = pts[pts.length - 2]!;
   const t = tileAt(s, p.x, p.y);
   return !!(t?.obj && RULES.objects[t.obj].cover);
+}
+
+// Facing (FAC-1, FAC-2).
+export const FACINGS: Facing[] = ['N', 'E', 'S', 'W'];
+export const DIR: Record<Facing, Pos> = { N: { x: 0, y: -1 }, E: { x: 1, y: 0 }, S: { x: 0, y: 1 }, W: { x: -1, y: 0 } };
+const CLOCKWISE: Record<Facing, Facing> = { N: 'E', E: 'S', S: 'W', W: 'N' };
+export const ahead = (p: Pos, f: Facing, n = 1): Pos => ({ x: p.x + DIR[f].x * n, y: p.y + DIR[f].y * n });
+/** The 4-way direction from a to an adjacent or in-line b; null if they are not in line. */
+export function dirTo(a: Pos, b: Pos): Facing | null {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if ((dx === 0) === (dy === 0)) return null;
+  return dx > 0 ? 'E' : dx < 0 ? 'W' : dy > 0 ? 'S' : 'N';
+}
+/** FAC-2: where `from` sits as seen by a walker at `at` facing `f`. */
+export function arcOf(at: Pos, f: Facing, from: Pos): Arc {
+  const vx = from.x - at.x, vy = from.y - at.y;
+  const d = DIR[f], r = DIR[CLOCKWISE[f]];
+  const a = vx * d.x + vy * d.y, c = vx * r.x + vy * r.y;
+  if (a > Math.abs(c)) return 'front';
+  if (-a > Math.abs(c)) return 'rear';
+  return c > 0 ? 'right' : 'left';
 }
 
 /** Cost to step onto a tile from a neighbour (MAP-2); Infinity if blocked. */

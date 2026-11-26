@@ -3,7 +3,7 @@ import { chooseAction } from '../src/ai';
 import { applyResult, equip, newCampaign, repair, repaint, walkerSummary, deployFrom } from '../src/engine/campaign';
 import { RULES } from '../src/engine/data';
 import { hasCover, hasLos, reachable } from '../src/engine/grid';
-import { canTarget, hitChance, preview, stats, weapons } from '../src/engine/query';
+import { canFire, hitChance, preview, stats, weapons } from '../src/engine/query';
 import { hash, legalActions, newBattle, step, view } from '../src/engine/step';
 import { clearSave, describe as describeSave, readSave, writeSave, type Envelope, type StorageLike } from '../src/client/save';
 import { invariants, replay, runBattle } from '../src/sim/run';
@@ -15,7 +15,7 @@ const tile = (s: BattleState, x: number, y: number) => s.tiles[y * s.w + x]!;
 describe('engine contract', () => {
   it('ARCH-1 step never throws and rejects illegal actions without change', () => {
     const s = fresh();
-    const r = step(s, { type: 'move', unit: 'dir-1', x: 0, y: 0 });
+    const r = step(s, { type: 'walk', unit: 'dir-1', x: 0, y: 0, facing: 'N' });
     expect(r.state).toBe(s);
     expect(r.events[0]?.type).toBe('rejected');
     expect(() => step(s, { type: 'bogus' } as never)).not.toThrow();
@@ -27,8 +27,8 @@ describe('engine contract', () => {
   it('ARCH-3 query owns the numbers: preview matches what step uses', () => {
     const s = arena(['marlow', 'dir-2']);
     place(s, 'marlow', 5, 10); place(s, 'dir-2', 5, 7);
-    const p = preview(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))!;
-    const r = step(s, { type: 'attack', unit: 'marlow', slot: 'R', target: 'dir-2' });
+    const p = preview(s, u(s, 'marlow'), 'R', 'burst', u(s, 'dir-2'))!;
+    const r = step(s, { type: 'fire', unit: 'marlow', slot: 'R', mode: 'burst', target: 'dir-2' });
     const ev = r.events.find((e) => e.type === 'attack');
     expect(ev && ev.type === 'attack' ? ev.chance : -1).toBe(p.chance);
   });
@@ -97,14 +97,14 @@ describe('walkers', () => {
     const w = u(fresh(), 'marlow');
     expect(Object.keys(w.hp).sort()).toEqual(['armL', 'armR', 'body', 'legs']);
   });
-  it('WLK-2 overweight costs a move and 10 evasion', () => {
+  it('WLK-2 overweight costs 10 evasion (and drive, DRV-7), not move', () => {
     const s = arena(['varga']);
     const before = stats(s, u(s, 'varga'));
     u(s, 'varga').build.wL = 'w-rifle';
     u(s, 'varga').build.pack = 'pack-mortar';
     const after = stats(s, u(s, 'varga'));
     expect(after.overweight).toBe(true);
-    expect(after.move).toBe(before.move - 1);
+    expect(after.move).toBe(before.move);
     expect(after.evade).toBe(before.evade - 10);
   });
   it('WLK-3 a lost arm loses its weapon; lost legs move 1', () => {
@@ -118,20 +118,10 @@ describe('walkers', () => {
     place(s, 'marlow', 5, 10); place(s, 'dir-4', 5, 9);
     const t = u(s, 'marlow');
     t.hp.armL = 0; t.hp.armR = 0; t.hp.legs = 0;
-    s.phase = 'hostile';
-    const r = step(s, { type: 'attack', unit: 'dir-4', slot: 'L', target: 'marlow' });
+    s.phase = 'hostile'; u(s, 'dir-4').drive = 4;
+    const r = step(s, { type: 'fire', unit: 'dir-4', slot: 'L', mode: 'strike', target: 'marlow' });
     const ev = r.events.find((e) => e.type === 'attack' && !e.counter);
     if (ev?.type === 'attack') for (const sh of ev.shots) if (sh.hit) expect(sh.part).toBe('body');
-  });
-  it('WLK-5 a shield cuts body damage while the left arm stands', () => {
-    const s = arena(['okonjo', 'dir-2']);
-    const p = preview({ ...s, phase: 'hostile' }, u(s, 'dir-2'), 'R', u(s, 'okonjo'));
-    place(s, 'okonjo', 5, 10); place(s, 'dir-2', 5, 6);
-    const pv = preview(s, u(s, 'dir-2'), 'R', u(s, 'okonjo'))!;
-    expect(pv.dmg[1]).toBeLessThan(50 * 1.1);
-    u(s, 'okonjo').hp.armL = 0;
-    expect(preview(s, u(s, 'dir-2'), 'R', u(s, 'okonjo'))!.dmg[1]).toBe(Math.round(50 * 1.1));
-    expect(p === null || p !== null).toBe(true);
   });
 });
 
@@ -140,23 +130,12 @@ describe('phases', () => {
     const s = fresh();
     expect([s.round, s.phase]).toEqual([1, 'player']);
   });
-  it('TRN-2 a walker cannot move after acting', () => {
-    let s = fresh();
-    s = step(s, { type: 'wait', unit: 'marlow' }).state;
-    expect(step(s, { type: 'move', unit: 'marlow', x: 6, y: 15 }).events[0]?.type).toBe('rejected');
-  });
   it('TRN-3 allies can be passed but not ended on', () => {
     const s = arena(['marlow', 'haldane']);
     place(s, 'marlow', 5, 10); place(s, 'haldane', 5, 9);
     const r = reachable(s, u(s, 'marlow'), 2);
     expect(r.find((t) => t.x === 5 && t.y === 9)).toBeUndefined();
     expect(r.find((t) => t.x === 5 && t.y === 8)).toBeDefined();
-  });
-  it('TRN-4 a move can be taken back before acting', () => {
-    let s = fresh();
-    s = step(s, { type: 'move', unit: 'marlow', x: 6, y: 14 }).state;
-    s = step(s, { type: 'undoMove', unit: 'marlow' }).state;
-    expect([u(s, 'marlow').x, u(s, 'marlow').y, u(s, 'marlow').moved]).toEqual([6, 16, false]);
   });
   it('TRN-5 ending both phases starts the next round', () => {
     let s = fresh();
@@ -168,109 +147,58 @@ describe('phases', () => {
 });
 
 describe('attacks', () => {
-  it('ATK-1 range and line of sight', () => {
-    const s = arena(['marlow', 'dir-2']);
-    place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 7);
-    expect(canTarget(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))).toBe(false); // autocannon reaches 4
-    place(s, 'dir-2', 5, 8);
-    expect(canTarget(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))).toBe(true);
-    tile(s, 5, 10).obj = 'container';
-    expect(canTarget(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))).toBe(false);
-  });
-  it('ATK-2 cover takes 20 and height gives 10, clamped 5..95', () => {
-    const s = arena(['marlow', 'dir-2']);
-    place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 9);
-    const open = hitChance(s, u(s, 'marlow'), 'R', u(s, 'dir-2'));
-    tile(s, 5, 10).obj = 'barrier';
-    expect(hitChance(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))).toBe(Math.max(5, open - 20));
-    tile(s, 5, 10).obj = null; tile(s, 5, 12).h = 1;
-    expect(hitChance(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))).toBe(Math.min(95, open + 10));
-  });
-  it('ATK-3 hits land on parts from the class weights', () => {
-    const parts = new Set<string>();
-    for (let seed = 1; seed < 40; seed++) {
-      const s = arena(['marlow', 'dir-2'], seed);
-      place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 10);
-      for (const e of step(s, { type: 'attack', unit: 'marlow', slot: 'R', target: 'dir-2' }).events) if (e.type === 'attack') for (const sh of e.shots) if (sh.part) parts.add(sh.part);
-    }
-    expect([...parts].sort()).toEqual(['armL', 'armR', 'body', 'legs']);
-  });
-  it('ATK-4 damage stays within 0.9..1.1 of the weapon damage', () => {
-    for (let seed = 1; seed < 30; seed++) {
-      const s = arena(['marlow', 'dir-2'], seed);
-      place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 10);
-      for (const e of step(s, { type: 'attack', unit: 'marlow', slot: 'R', target: 'dir-2' }).events)
-        if (e.type === 'attack' && !e.counter) for (const sh of e.shots) if (sh.hit) { expect(sh.dmg).toBeGreaterThanOrEqual(21); expect(sh.dmg).toBeLessThanOrEqual(27); }
-    }
-  });
   it('ATK-5 a mortar fires over walls when an ally sees the target, with splash', () => {
     const s = arena(['okonjo', 'varga', 'dir-2', 'dir-4']);
     place(s, 'okonjo', 5, 14); place(s, 'varga', 9, 8); place(s, 'dir-2', 5, 8); place(s, 'dir-4', 6, 8);
     tile(s, 5, 11).obj = 'container';
-    expect(canTarget(s, u(s, 'okonjo'), 'P', u(s, 'dir-2'))).toBe(true);
+    expect(canFire(s, u(s, 'okonjo'), 'P', 'he', u(s, 'dir-2'))).toBe(true);
     let splashed = false;
-    for (let seed = 1; seed < 20 && !splashed; seed++) { s.rng = [seed, 2, 3, 4]; if (step(s, { type: 'attack', unit: 'okonjo', slot: 'P', target: 'dir-2' }).events.some((e) => e.type === 'splash')) splashed = true; }
+    for (let seed = 1; seed < 20 && !splashed; seed++) { s.rng = [seed, 2, 3, 4]; if (step(s, { type: 'fire', unit: 'okonjo', slot: 'P', mode: 'he', target: 'dir-2' }).events.some((e) => e.type === 'splash')) splashed = true; }
     expect(splashed).toBe(true);
   });
   it('ATK-6 the mortar runs out of ammunition', () => {
     const s = arena(['okonjo', 'dir-2']);
     place(s, 'okonjo', 5, 14); place(s, 'dir-2', 5, 9);
     u(s, 'okonjo').ammo = 0;
-    expect(canTarget(s, u(s, 'okonjo'), 'P', u(s, 'dir-2'))).toBe(false);
+    expect(canFire(s, u(s, 'okonjo'), 'P', 'he', u(s, 'dir-2'))).toBe(false);
   });
   it('ATK-7 a sensor spotter adds 20 to indirect fire', () => {
     const s = arena(['okonjo', 'varga', 'dir-2']);
     place(s, 'okonjo', 5, 14); place(s, 'dir-2', 5, 9); place(s, 'varga', 0, 0);
-    const alone = hitChance(s, u(s, 'okonjo'), 'P', u(s, 'dir-2'));
+    const alone = hitChance(s, u(s, 'okonjo'), 'P', 'he', u(s, 'dir-2'));
     place(s, 'varga', 8, 9);
-    expect(hitChance(s, u(s, 'okonjo'), 'P', u(s, 'dir-2'))).toBe(Math.min(95, alone + 20));
+    expect(hitChance(s, u(s, 'okonjo'), 'P', 'he', u(s, 'dir-2'))).toBe(Math.min(95, alone + 20));
   });
-  it('ATK-8 the target counters once, at a reaction penalty, and counters never chain', () => {
-    const s = arena(['marlow', 'dir-2']);
-    place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 9);
-    const p = preview(s, u(s, 'marlow'), 'R', u(s, 'dir-2'))!;
-    expect(p.counter?.chance).toBe(hitChance(s, u(s, 'dir-2'), 'R', u(s, 'marlow')) - RULES.counterPenalty);
-    const evs = step(s, { type: 'attack', unit: 'marlow', slot: 'R', target: 'dir-2' }).events.filter((e) => e.type === 'attack');
-    expect(evs.length).toBeLessThanOrEqual(2);
-    if (evs.length === 2) expect(evs[1]!.type === 'attack' && evs[1]!.counter).toBe(true);
-  });
-  it('ATK-9 objects take every shot and turn to rubble', () => {
+  it('ATK-9 objects take every shot of the mode and turn to rubble', () => {
     const s = arena(['marlow']);
     place(s, 'marlow', 5, 12); tile(s, 5, 10).obj = 'barrier'; tile(s, 5, 10).objHp = 45;
-    const r = step(s, { type: 'attackObject', unit: 'marlow', slot: 'R', x: 5, y: 10 });
+    const r = step(s, { type: 'fireAt', unit: 'marlow', slot: 'R', mode: 'burst', x: 5, y: 10 });
     expect(tile(r.state, 5, 10).obj).toBe(null);
     expect(tile(r.state, 5, 10).t).toBe('rubble');
   });
 });
 
 describe('support, pilots, end', () => {
-  it('SUP-1 repair restores HP to a damaged part of an adjacent ally, not a lost one', () => {
-    const s = arena(['haldane', 'marlow']);
-    place(s, 'haldane', 5, 10); place(s, 'marlow', 5, 11);
-    u(s, 'marlow').hp.legs = 40; u(s, 'marlow').hp.armL = 0;
-    expect(step(s, { type: 'repair', unit: 'haldane', target: 'marlow', part: 'armL' }).events[0]?.type).toBe('rejected');
-    const r = step(s, { type: 'repair', unit: 'haldane', target: 'marlow', part: 'legs' });
-    expect(u(r.state, 'marlow').hp.legs).toBe(85);
-  });
   it('PIL-1 a destroyed walker ejects its pilot (destroyed, not removed)', () => {
     const s = arena(['marlow', 'dir-4']);
     place(s, 'marlow', 5, 10); place(s, 'dir-4', 5, 9);
     u(s, 'marlow').hp.body = 1;
-    s.phase = 'hostile';
+    s.phase = 'hostile'; u(s, 'dir-4').drive = 4;
     let destroyed = false;
-    for (let seed = 1; seed < 10 && !destroyed; seed++) { s.rng = [seed, 9, 9, 9]; destroyed = step(s, { type: 'attack', unit: 'dir-4', slot: 'L', target: 'marlow' }).events.some((e) => e.type === 'destroyed' && e.unit === 'marlow'); }
+    for (let seed = 1; seed < 10 && !destroyed; seed++) { s.rng = [seed, 9, 9, 9]; destroyed = step(s, { type: 'fire', unit: 'dir-4', slot: 'L', mode: 'strike', target: 'marlow' }).events.some((e) => e.type === 'destroyed' && e.unit === 'marlow'); }
     expect(destroyed).toBe(true);
   });
   it('PIL-2 pilot skill adds to hit chance', () => {
     const s = arena(['marlow', 'haldane', 'dir-2']);
     place(s, 'marlow', 4, 12); place(s, 'haldane', 6, 12); place(s, 'dir-2', 5, 9);
     u(s, 'marlow').build.wR = 'w-carbine';
-    expect(hitChance(s, u(s, 'marlow'), 'R', u(s, 'dir-2')) - hitChance(s, u(s, 'haldane'), 'R', u(s, 'dir-2'))).toBe(10);
+    u(s, 'marlow').nerve = u(s, 'haldane').nerve; // nerve bands (HIT-2) aside
+    expect(hitChance(s, u(s, 'marlow'), 'R', 'double', u(s, 'dir-2')) - hitChance(s, u(s, 'haldane'), 'R', 'double', u(s, 'dir-2'))).toBe(10);
   });
   it('END-1 the player wins when every hostile falls', () => {
     const s = arena(['marlow', 'dir-2']);
     place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 10); u(s, 'dir-2').hp.body = 1;
-    for (let seed = 1; seed < 20; seed++) { s.rng = [seed, 1, 1, 1]; const r = step(s, { type: 'attack', unit: 'marlow', slot: 'R', target: 'dir-2' }); if (r.state.result) { expect(r.state.result.winner).toBe('player'); return; } }
+    for (let seed = 1; seed < 20; seed++) { s.rng = [seed, 1, 1, 1]; const r = step(s, { type: 'fire', unit: 'marlow', slot: 'R', mode: 'burst', target: 'dir-2' }); if (r.state.result) { expect(r.state.result.winner).toBe('player'); return; } }
     throw new Error('never hit');
   });
   it('END-2 the round limit ends the battle as a loss', () => {
@@ -331,14 +259,14 @@ describe('save', () => {
   it('SAV-1 one envelope round-trips; the snapshot is what reopens', () => {
     const st = mem();
     const b = newBattle('marrow-yard', 9);
-    const env: Envelope = { v: 1, savedAt: 0, screen: 'battle', campaign: newCampaign(), battle: { seed: 9, actions: [], snapshot: b } };
+    const env: Envelope = { v: 2, savedAt: 0, screen: 'battle', campaign: newCampaign(), battle: { seed: 9, actions: [], snapshot: b } };
     expect(writeSave(env, st)).toBe(null);
     const r = readSave(st);
     expect(r.ok && r.env.battle?.snapshot).toEqual(b);
   });
   it('SAV-2 Continue names what it reopens; damaged saves say why', () => {
     const st = mem();
-    const env: Envelope = { v: 1, savedAt: 0, screen: 'battle', campaign: newCampaign(), battle: { seed: 9, actions: [], snapshot: newBattle('marrow-yard', 9) } };
+    const env: Envelope = { v: 2, savedAt: 0, screen: 'battle', campaign: newCampaign(), battle: { seed: 9, actions: [], snapshot: newBattle('marrow-yard', 9) } };
     expect(describeSave(env)).toContain('round 1');
     st.setItem('ib-save', '{broken');
     const r = readSave(st);
@@ -347,6 +275,11 @@ describe('save', () => {
     clearSave(st);
     expect(readSave(st)).toEqual({ ok: false, reason: 'none' });
     expect(writeSave(env, null)).toContain('refuses storage');
+    // PLAN Q17: a v1 save taken mid-battle reopens at the briefing with the pre-battle company, and says so.
+    st.setItem('ib-save', JSON.stringify({ v: 1, savedAt: 0, screen: 'battle', campaign: newCampaign(), battle: { seed: 1, actions: [], snapshot: {} } }));
+    const old = readSave(st);
+    expect(old.ok && old.env.screen).toBe('briefing');
+    expect(old.ok && describeSave(old.env)).toContain('old rules');
   });
 });
 
