@@ -15,6 +15,8 @@ export interface ModeDef {
   acc?: number; dmg?: number; baseAcc?: number; baseDmg?: number;
   class?: WeaponClass; min?: number; max?: number;
   call?: boolean; ignoreCover?: boolean;
+  /** MOD-7: how many tiles a push carries the target (default 1). */
+  pushes?: number;
   needs?: 'still' | 'charge' | 'marked';
   effect?: 'pin' | 'push' | 'knockdown' | 'stagger' | 'overwatch' | 'guard' | 'smoke' | 'grab';
   target?: 'tile' | 'ally';

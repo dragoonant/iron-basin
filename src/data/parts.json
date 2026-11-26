@@ -38,7 +38,7 @@
     },
     "body-dir-wedge": {
       "name": "WEDGE body",
-      "hp": 105,
+      "hp": 115,
       "power": 50,
       "weight": 13,
       "kit": "wedge",
@@ -254,7 +254,7 @@
           "name": "Suppress",
           "dp": 2,
           "shots": 4,
-          "acc": -25,
+          "acc": -15,
           "dmg": 0.5,
           "effect": "pin"
         }
@@ -346,7 +346,8 @@
           "dp": 1,
           "shots": 1,
           "dmg": 0.3,
-          "effect": "push"
+          "effect": "push",
+          "pushes": 2
         },
         {
           "id": "drive",
@@ -504,7 +505,7 @@
       "nerve": 3,
       "kind": "self",
       "gain": 2,
-      "strain": 10
+      "strain": 15
     },
     "dash": {
       "name": "Dash",

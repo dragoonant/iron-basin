@@ -6,7 +6,7 @@
 
 **The one-line pitch:** *every walker has a budget of drive to spend each phase, and what it can spend it on comes from the parts bolted to it, the ground it stands on and the nerve of the person inside.*
 
-Status: **slices 5a-5e done** (2026-11-26); every spec 15 rule plays. Left: AI v2 (5f), the balance pass (5g), polish (5h). The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
+Status: **slices 5a-5g done** (2026-11-26); every spec 15 rule plays, AI v2 uses nearly all of it, balance pass 2 is recorded. Left: polish (5h). The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
 
 ---
 
@@ -30,14 +30,14 @@ A mode lists `dp`, `shots`, accuracy and damage modifiers and an effect. Data mo
 |---|---|---|---|
 | 30 mm autocannon | **Burst** | 2 | 3 shots (today's attack). |
 | | **Aimed pair** | 3 | 2 shots at +15; **call a part**. |
-| | **Suppress** | 2 | 4 shots at -25 for ×0.5 damage. Even one hit **pins** the target (-1 drive and -10 to hit in its next phase) and costs it 1 nerve. |
+| | **Suppress** | 2 | 4 shots at -15 for ×0.5 damage. Even one hit **pins** the target (-1 drive and -10 to hit in its next phase) and costs it 1 nerve. |
 | 20 mm carbine | **Snap** | 1 | 1 shot at -10. Cheap, so it is also the usual reaction shot. |
 | | **Double tap** | 2 | 2 shots. |
 | | **Cover lane** | 1 | No shot now: sets **overwatch** on a line of tiles (RCT-3). The shot later costs 1 reserve. |
 | Long rifle | **Shot** | 2 | 1 shot. |
 | | **Braced shot** | 3 | Only if the walker has not walked this phase: +20, ×1.25 damage, call a part. |
 | Ram fist | **Strike** | 2 | 1 hit (today's attack). |
-| | **Shove** | 1 | ×0.3 damage and pushes the target 1 tile straight away (FLD-1). |
+| | **Shove** | 1 | ×0.3 damage and pushes the target 2 tiles straight away (FLD-1). |
 | | **Drive-through** | 3 | Only after a straight walk of 2+ tiles this phase: ×1.5 damage and knocks the target down. |
 | Riveted shield | **Guard** | 1 | Reaction set on an adjacent ally: shots at that ally from your front arc hit your shield arm instead (WLK-5 guard applies). |
 | | **Bash** | 1 | Light hit. **Staggers** the target (-1 drive next phase). |
@@ -58,7 +58,7 @@ Parts list their maneuvers in data, so salvage changes what a walker *can do*, n
 | H legs | **Brace** (above). **Plant**: until your next phase, an ally directly behind you counts as in cover (1 DP). |
 | Any arm with no weapon | **Grab**: an adjacent enemy cannot walk until it spends 2 DP to break free, and both of you lose 10 evasion (1 DP). **Throw**: hurl rubble from an adjacent rubble tile, range 2-4, 1 shot (2 DP). |
 | WEDGE arms (salvage) | **Ram jab**: a 1-DP light melee hit, pushes. Wearing an enemy arm teaches you its move. |
-| Any body | **Overdrive**: +2 DP now. Costs 3 nerve, and the reactor strain does 10 damage to the body. Once per phase. |
+| Any body | **Overdrive**: +2 DP now. Costs 3 nerve, and the reactor strain does 15 damage to the body. Once per phase. |
 | Any walker | **Pivot**: face another way (1 DP). Every walk ends with a facing you choose for free. |
 | Sensor mast | **Mark** (1 DP): the target is marked until your next phase, so allies get +15 to hit it and Tagged salvo locks on. Spotting (ATK-7) stays passive. |
 | Repair crane | **Patch** (2 DP, SUP-1). **Tow** (1 DP): pull an adjacent ally one tile toward you, which gets a knocked-down ally out of a lane. |
@@ -135,8 +135,8 @@ Nerve is how the pilots show up on the field, not only in the briefing. Pilot le
 | **5c** ✓ | Maneuvers and the field: kick, ram jab, grab, throw, dash, hop, brace, plant, overdrive, mark, tow; rolling wagons and toppling stacks (push, fall, knockdown and smoke landed in 5b) | FLD, the maneuver rows | done 2026-11-26: coupled wagons roll as a rake (FLD-3 ruling); AI vs AI 42.5%, median 10 rounds |
 | **5d** | (folded into 5b) | | |
 | **5e** ✓ | Nerve and signatures | NRV | done 2026-11-26: nerve gauge and signature buttons in the HUD; AI vs AI 46.0% |
-| **5f** | AI v2: plans a sequence (walk, action, walk) inside the drive budget with a small beam search; values flanks, push into hazards, keeping reserve when threatened, wagon lines | ARCH-4 | `bench:ai`: v2 beats random ≥ 90% and beats the v1 AI (kept as `simple`) ≥ 65% |
-| **5g** | Balance pass 2 and usage telemetry: `sim` reports how often each mode and maneuver is used, and a mode below 3% of actions is redesigned or cut | | AI vs AI player win 30-45%; median rounds ≤ 12; recorded in `80-sim.md` |
+| **5f** ✓ | AI v2: plans a sequence (walk, action, walk) inside the drive budget with a small beam search; values flanks, push into hazards, keeping reserve when threatened, wagon lines | ARCH-4 | done 2026-11-26: beats random 100% and simple 82% (`80-sim.md`) |
+| **5g** ✓ | Balance pass 2 and usage telemetry: `sim` reports how often each mode and maneuver is used, and a mode below 3% of actions is redesigned or cut | | done 2026-11-26: AI vs AI 41.5%, median 8 rounds; Overdrive strain 15, Suppress -15, Shove 2 tiles, Lantern nerve -1, WEDGE body 115 |
 | **5h** | Hangar moveset view, briefing notes, first-phase hints, phone landscape check (844×390), save v2, Artifact republish | HGR-4, SAV | e2e full contract on v2; `check:look` |
 
 Contract 2 (Kerrow Locks) moves to M6, built on v2 with the lock gate and the swing bridge.

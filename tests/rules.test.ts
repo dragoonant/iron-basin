@@ -38,6 +38,23 @@ describe('engine contract', () => {
     expect(a1).toEqual(a2);
     expect(view(s, 'hostile').rng).toEqual([0, 0, 0, 0]);
   });
+  it('ARCH-4 AI v2 plans past one order: a walker walks onto the rails to send the wagons into an enemy', () => {
+    const s = arena(['marlow', 'dir-2']);
+    place(s, 'marlow', 6, 13); place(s, 'dir-2', 4, 6);
+    u(s, 'marlow').build.wL = null; u(s, 'marlow').build.wR = null; // only the wagon can reach it
+    s.tiles[11 * s.w + 4]!.obj = 'wagon'; s.tiles[11 * s.w + 4]!.objHp = 60;
+    let v = s;
+    const orders: string[] = [];
+    for (let i = 0; i < 6 && !v.result && v.phase === 'player'; i++) {
+      const a = chooseAction(view(v, 'player'));
+      orders.push(a.type === 'maneuver' ? a.id : a.type);
+      const r = step(v, a);
+      expect(r.events[0]?.type).not.toBe('rejected');
+      v = r.state;
+      if (a.type === 'standDown' || a.type === 'endPhase') break;
+    }
+    expect(orders).toContain('shunt');
+  });
   it('ARCH-5 the same seed and actions replay to the same hash', () => {
     const r = runBattle(3, 'normal', 'normal', false);
     expect(replay(3, r.actions)).toBe(hash(r.state));
@@ -287,5 +304,5 @@ describe('sim invariants', () => {
   it('no invariant breaks over 10 AI battles', () => {
     for (let seed = 1; seed <= 10; seed++) expect(runBattle(seed, 'normal', 'normal').violations).toEqual([]);
     expect(invariants(fresh())).toEqual([]);
-  });
+  }, 60_000);
 });

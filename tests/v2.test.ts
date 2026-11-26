@@ -234,7 +234,7 @@ describe('fire modes (slice 5b)', () => {
     const s = turn(arena(['dir-4', 'marlow']), 'hostile');
     place(s, 'dir-4', 5, 7); place(s, 'marlow', 5, 8);
     const sh = until(s, { type: 'fire', unit: 'dir-4', slot: 'L', mode: 'shove', target: 'marlow' }, hitOn('marlow')).state;
-    expect([u(sh, 'marlow').x, u(sh, 'marlow').y]).toEqual([5, 9]);
+    expect([u(sh, 'marlow').x, u(sh, 'marlow').y]).toEqual([5, 10]); // Shove carries 2 tiles
     let c = turn(arena(['dir-4', 'marlow']), 'hostile');
     place(c, 'dir-4', 5, 5); place(c, 'marlow', 5, 8);
     c = ok(c, { type: 'walk', unit: 'dir-4', x: 5, y: 7, facing: 'S' }).state;
@@ -417,13 +417,13 @@ describe('maneuvers (slice 5c)', () => {
     place(s, 'dir-2', 5, 6);
     expect(maneuverBlock(s, u(s, 'varga'), 'throw', 'L', u(s, 'dir-2'), null)).toBe('out of range');
   });
-  it('MAN-8 Overdrive: +2 drive for 3 nerve and 10 body, once a phase', () => {
+  it('MAN-8 Overdrive: +2 drive for its nerve and body strain, once a phase', () => {
     let s = arena(['marlow', 'dir-2']);
-    const body = u(s, 'marlow').hp.body;
+    const body = u(s, 'marlow').hp.body, nerve = u(s, 'marlow').nerve, od = PARTS.maneuvers.overdrive!;
     s = ok(s, { type: 'maneuver', unit: 'marlow', id: 'overdrive' }).state;
-    expect([u(s, 'marlow').drive, u(s, 'marlow').nerve, u(s, 'marlow').hp.body]).toEqual([6, 5, body - 10]);
+    expect([u(s, 'marlow').drive, u(s, 'marlow').nerve, u(s, 'marlow').hp.body]).toEqual([4 + od.gain!, nerve - od.nerve!, body - od.strain!]);
     no(s, { type: 'maneuver', unit: 'marlow', id: 'overdrive' });
-    const low = arena(['marlow', 'dir-2']); u(low, 'marlow').hp.body = 10;
+    const low = arena(['marlow', 'dir-2']); u(low, 'marlow').hp.body = od.strain!;
     no(low, { type: 'maneuver', unit: 'marlow', id: 'overdrive' });
   });
   it('MAN-9 Mark: +15 to hit for the marking side, unlocks Tagged salvo, clears at that side’s next phase', () => {
@@ -584,7 +584,7 @@ describe('the field (slice 5c)', () => {
     expect(r.events[0]).toMatchObject({ type: 'wagon', cars: [{ from: { x: 4, y: 14 }, to: { x: 4, y: 10 } }], hit: 'dir-2' });
     expect(tile(r.state, 4, 10).obj).toBe('wagon');
     expect(u(r.state, 'dir-2')).toMatchObject({ x: 3, y: 9, status: expect.objectContaining({ down: true }) });
-    expect(u(r.state, 'dir-2').hp.body).toBe(105 - RULES.wagon.dmg);
+    expect(u(r.state, 'dir-2').hp.body).toBe(PARTS.bodies['body-dir-wedge']!.hp - RULES.wagon.dmg);
     expect(r.events.some((e) => e.type === 'attack')).toBe(false);
     const far = yard(); place(far, 'dir-2', 0, 1);
     expect(ok(far, { type: 'maneuver', unit: 'marlow', id: 'shunt', x: 4, y: 14 }).events[0]).toMatchObject({ cars: [{ to: { x: 4, y: 14 - RULES.wagon.roll } }] });
@@ -612,7 +612,7 @@ describe('the field (slice 5c)', () => {
     const tp = r.events.find((e) => e.type === 'toppled')!;
     expect(tp).toMatchObject({ x: 5, y: 10, dir: 'N' });
     expect(tile(r.state, 5, 10)).toMatchObject({ obj: null, t: 'rubble' });
-    expect(u(r.state, 'dir-2').hp.body).toBe(105 - RULES.stack.dmg);
+    expect(u(r.state, 'dir-2').hp.body).toBe(PARTS.bodies['body-dir-wedge']!.hp - RULES.stack.dmg);
     expect(u(r.state, 'dir-2').status.down).toBe(true);
     expect(tile(r.state, 5, 8).obj).toBe(null);
     const c = arena(['marlow', 'dir-2', 'dir-4']); place(c, 'marlow', 5, 12); place(c, 'dir-4', 0, 0); place(c, 'dir-2', 0, 2);
@@ -644,7 +644,7 @@ describe('the field (slice 5c)', () => {
   it('FLD-8 pushes never draw reactions', () => {
     const r = shove((s) => { place(s, 'haldane', 3, 9); u(s, 'haldane').overwatch = { slot: 'R', dir: 'E' }; u(s, 'haldane').facing = 'E'; u(s, 'haldane').reserve = 1; });
     expect(r.events.some((e) => e.type === 'attack' && e.reaction === 'overwatch')).toBe(false);
-    expect([u(r.state, 'marlow').x, u(r.state, 'marlow').y]).toEqual([5, 9]);
+    expect([u(r.state, 'marlow').x, u(r.state, 'marlow').y]).toEqual([5, 10]);
   });
 });
 
@@ -676,6 +676,7 @@ describe('nerve (slice 5e)', () => {
   });
   it('NRV-3 Steady unlocks the signature; below it the signature is refused', () => {
     const s = arena(['marlow', 'haldane', 'dir-2']);
+    u(s, 'marlow').nerve = RULES.nerve.steady;
     expect(maneuverBlock(s, u(s, 'marlow'), 'call-the-line', null, null, null)).toBe(null);
     u(s, 'marlow').nerve = RULES.nerve.steady - 1;
     expect(maneuverBlock(s, u(s, 'marlow'), 'call-the-line', null, null, null)).toContain('Steady');
@@ -692,6 +693,7 @@ describe('nerve (slice 5e)', () => {
     let s = arena(['marlow', 'haldane', 'okonjo', 'dir-2']);
     place(s, 'marlow', 5, 12); place(s, 'haldane', 7, 12); place(s, 'okonjo', 3, 12); place(s, 'dir-2', 0, 0);
     s = ok(s, { type: 'standDown', unit: 'okonjo' }).state;
+    u(s, 'marlow').nerve = RULES.nerve.steady;
     s = ok(s, { type: 'maneuver', unit: 'marlow', id: 'call-the-line' }).state;
     s = ok(s, { type: 'standDown', unit: 'haldane' }).state;
     expect([u(s, 'okonjo').reserve, u(s, 'haldane').reserve]).toEqual([RULES.drive.signatureReserveCap, RULES.drive.signatureReserveCap]);

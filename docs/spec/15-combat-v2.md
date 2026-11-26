@@ -51,7 +51,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - **MOD-4** `call: true` (Aimed pair, Braced shot): the order names the part: body, armL, armR or legs; pack only from the target's rear arc.
 - **MOD-5** `needs: "still"` (Braced shot): only if the walker has not walked this phase. `needs: "charge"` (Drive-through): only if the walker's last order this phase was a walk whose every step went the same way, at least 2 steps, and the target stands on the next tile in that direction. `needs: "marked"` (Tagged salvo): only against a marked target.
 - **MOD-6** `effect: "pin"` (Suppress): if at least one shot hits, the target is **pinned**: in its next phase it has `drive.pinned` less drive (DRV-1) and −`pinnedHit` to hit; and NRV-2 applies once.
-- **MOD-7** `effect: "push"` (Shove), `"knockdown"` (Drive-through), `"stagger"` (Bash): if at least one shot hits, the target is pushed (FLD-1), knocked down (FLD-2), or staggered (`drive.staggered` less drive in its next phase). Braced targets ignore push and knockdown; the damage still lands.
+- **MOD-7** `effect: "push"` (Shove), `"knockdown"` (Drive-through), `"stagger"` (Bash): if at least one shot hits, the target is pushed (FLD-1), knocked down (FLD-2), or staggered (`drive.staggered` less drive in its next phase). A push carries the mode's `pushes` tiles (default 1; Shove 2), straight on, and stops at the first collision, fall or water. Braced targets ignore push and knockdown; the damage still lands.
 - **MOD-8** `effect: "overwatch"` (Cover lane) and `effect: "guard"` (Guard) set reactions (RCT-3, RCT-4). `effect: "smoke"` lays smoke (FLD-6); it needs no roll and lands on the chosen tile.
 - **MOD-9** Splash (ATK-5) stays with High explosive only.
 
@@ -137,6 +137,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - RULING: MAN-1 | lost legs lose their maneuvers, like a lost arm | a walker on its stumps does not Dash, Kick or Brace.
 - RULING: MAN-6 | a push that moves either walker ends the grab; a push that collides does not | the grab is broken by being torn apart, not by a bump.
 - RULING: FLD-5 | the topple runs along the axis the hit came in on; an exact diagonal counts as the x axis | deterministic and previewable.
+- RULING: MOD-7 | Shove carries 2 tiles | at 1 tile it did what Ram jab does for the same drive and less damage, so AI v2 never chose it (sim 2026-11-26); 2 tiles makes it the positional move: water or the platform edge from a tile away.
 - RULING: FLD-5 | topples do not chain | a topple can hit another stack, which takes damage but does not fall that turn; chains are hard to read and to preview.
 - RULING: NRV-2 | a kill by a push, a rolling wagon or a topple credits the walker that caused it | the player who shunts a wagon into a walker earned it.
 - RULING: NRV-2 | a hit taken on a guard's shield costs the guard no nerve, and indirect fire costs no flank nerve | the guard chose the hit; shells have no flank.

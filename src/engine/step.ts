@@ -175,12 +175,12 @@ function pushMoves(s: BattleState, t: Unit, dir: Facing): boolean {
   return !!q && !q.obj && !unitAt(s, d.x, d.y) && q.h <= here.h;
 }
 
-/** FLD-1: push `t` one tile straight away from `from`. */
-function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): void {
-  if (!t.alive) return;
+/** FLD-1: push `t` one tile straight away from `from`. Returns whether it moved. */
+function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): boolean {
+  if (!t.alive) return false;
   const dir = dirTo(from, t);
-  if (!dir) return;
-  if (t.status.braced) { ev.push({ type: 'status', unit: t.id, status: 'braced' }); return; } // MAN-5
+  if (!dir) return false;
+  if (t.status.braced) { ev.push({ type: 'status', unit: t.id, status: 'braced' }); return false; } // MAN-5
   const dest = ahead(t, dir);
   const here = tileAt(s, t.x, t.y)!, there = tileAt(s, dest.x, dest.y);
   const other = there ? unitAt(s, dest.x, dest.y) : null;
@@ -197,7 +197,7 @@ function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): vo
     }
     ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'collide', dmg: r.dmg, other: other?.id ?? null, obj });
     if (obj && !obj.broken) maybeTopple(s, dest.x, dest.y, t, ev);
-    return;
+    return false;
   }
   releaseAll(s, t, ev); // MAN-6: a pushed walker breaks a grab
   t.x = dest.x; t.y = dest.y;
@@ -210,6 +210,7 @@ function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): vo
     t.status.mired = true;
     ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'water', dmg: 0, other: null, obj: null });
   } else ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'moved', dmg: 0, other: null, obj: null });
+  return true;
 }
 
 /** FAC-4: a hit on the backpack. Its damage has already gone to the body. */
@@ -289,7 +290,16 @@ function resolveFire(s: BattleState, a: Unit, mi: Roll, t: Unit, opts: FireOpts,
     if (fx === 'pin' && !v.status.pinned) { v.status.pinned = true; ev.push({ type: 'status', unit: v.id, status: 'pinned' }); nerve(v, RULES.nerve.pinned, 'pinned', ev); }
     if (fx === 'stagger' && !v.status.staggered) { v.status.staggered = true; ev.push({ type: 'status', unit: v.id, status: 'staggered' }); }
     if (fx === 'knockdown') knockDown(v, ev);
-    if (fx === 'push') push(s, a, v, a, ev);
+    if (fx === 'push') {
+      // MOD-7: a push carries `pushes` tiles, straight on, and stops at the first collision, fall or water.
+      const dir = dirTo(a, v);
+      for (let k = 0, from: Pos = { x: a.x, y: a.y }; k < (mi.mode.pushes ?? 1) && dir; k++) {
+        const before = tileAt(s, v.x, v.y)!;
+        if (!push(s, a, v, from, ev)) break;
+        if (v.status.down || v.status.mired || tileAt(s, v.x, v.y)!.h < before.h) break;
+        from = ahead(v, dir, -1);
+      }
+    }
     if (fx === 'grab' && v.id === t.id && (mi.slot === 'L' || mi.slot === 'R')) { // MAN-6
       v.status.grabbedBy = a.id; a.grip = { target: v.id, arm: mi.slot };
       ev.push({ type: 'status', unit: v.id, status: 'grabbed' });

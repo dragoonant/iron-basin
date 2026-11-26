@@ -35,9 +35,9 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | Q10 | Audio: ElevenLabs (connected to this session) instead of the local Audio Studio, which this cloud session cannot reach; "not verified by ear" until the owner listens (KB rule 9) |
 | Q12 | Drive per body: L 5, M 4, H 4; reserve cap 2; each weapon slot fires once a phase *(tune)* |
 | Q13 | Return fire is automatic while reserve is at least 1, with a per-walker hold-fire toggle |
-| Q14 | Nerve 0-10; pilots start at 6-8; Steady at 8 or more, Shaken at 2 or less *(tune)* |
+| Q14 | Nerve 0-10; Lanterns start at 5-7 and the Directorate at 6-8 (balance pass 2); Steady at 8 or more, Shaken at 2 or less *(tune)* |
 | Q15 | Marrow Yard keeps its map art; data adds rail lines (x 4, x 11) and container stacks; still 4 against 5 |
-| Q16 | The v1 AI is kept as `simple`, a bench opponent for AI v2 |
+| Q16 | The one-pass AI of slices 5b-5e is kept as `simple`, a bench opponent for AI v2 (the v1 AI could not play v2 orders) |
 | Q17 | A v1 save taken mid-battle reopens at the briefing with the company as it stood before that battle (the battle restarts under v2 rules) and says so; other v1 saves open as they are |
 | Q11 | Publish the playable as a private claude.ai Artifact (KB rule 28) and on Pages once the repo exists |
 
@@ -49,5 +49,5 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M2 | Client: board, part-kit walkers, terrain, HUD, close-ups, save | done 2026-11-24 |
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
 | M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
-| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | in progress: 5a (spec and data) done 2026-11-25; 5b (core loop, reactions, push, smoke) 5c (maneuvers, wagons, stacks) and 5e (nerve, signatures) done 2026-11-26; next 5f (AI v2) |
+| M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | in progress: 5a (spec and data) done 2026-11-25; 5b (core loop, reactions, push, smoke) 5c (maneuvers, wagons, stacks) and 5e (nerve, signatures), 5f (AI v2) and 5g (balance pass 2) done 2026-11-26; next 5h |
 | M6 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow, a swing bridge); pilot levels; fog of war | after M5 |

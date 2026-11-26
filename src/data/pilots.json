@@ -5,7 +5,7 @@
     "skill": 10,
     "evade": 5,
     "side": "player",
-    "nerve": 8,
+    "nerve": 7,
     "signature": "call-the-line"
   },
   "okonjo": {
@@ -14,7 +14,7 @@
     "skill": 5,
     "evade": 0,
     "side": "player",
-    "nerve": 7,
+    "nerve": 6,
     "signature": "shoulder-to-shoulder"
   },
   "varga": {
@@ -23,7 +23,7 @@
     "skill": 5,
     "evade": 10,
     "side": "player",
-    "nerve": 6,
+    "nerve": 5,
     "signature": "ghost-step"
   },
   "haldane": {
@@ -32,7 +32,7 @@
     "skill": 0,
     "evade": 0,
     "side": "player",
-    "nerve": 6,
+    "nerve": 5,
     "signature": "hot-patch"
   },
   "hallen": {

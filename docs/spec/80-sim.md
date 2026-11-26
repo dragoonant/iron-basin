@@ -74,3 +74,42 @@ Normal vs random: 100% (both seats). Determinism ok.
 **Over the band:** AI vs AI is 46.0%, one point over the 30-45% target. The Lanterns have four signatures to the Directorate's one, and landing hits makes Steady (+10) common. Not tuned here: AI v2 (5f) changes how both sides play, so the balance pass (5g) tunes after it. Candidates: nerve `landHit` +1 only on a hit that does 20 or more, or `steady` at 9.
 
 **Orders used:** signatures run 0.0-0.4% each (Ghost step 0.4%, Call the line 0.3%, Shoulder to shoulder 0.3%, Drill tempo and Hot patch under 0.05%), as expected for once-per-battle moves.
+
+## AI v2 (slice 5f) and balance pass 2 (slice 5g), 2026-11-26
+AI v2 (`src/ai/plan.ts`) plans a walker's whole turn: [Overdrive?] [walk or Dash?] [up to two orders] [second walk?] [pivot?], then stands down with the rest as reserve. It scores expected damage, kills, called parts, pins (a third of the target's output), pushes by where they land, knockdowns, marks, smoke (blocked enemy lines), lanes, guards, shunts and patches; the end tile by threat, cover and height; reserve by the return fire it gives; nerve by what it buys near the Steady and Shaken lines; and the fire enemy lanes put on a path. The one-pass AI stays as `simple`, the bench opponent (PLAN Q16). AI moves before data, then one data change at a time; 100 battles a step unless marked.
+
+| Step | Change | AI vs AI player win | median rounds |
+|---|---|---|---|
+| 0 | AI v2 in, no number changed | 80% (10 battles) | 8 |
+| 1 | AI: pathing 2x faster, threat from each enemy's main mode | 60.0% | 8 |
+| 2 | AI: nerve has a worth (Overdrive, Dash), pins worth a third of the target's output, Tow scored | 53.0% | 8 |
+| 3 | Overdrive strain 10 -> 15 (it was 8.5% of all orders) | 50.0% | 8 |
+| 4 | Suppress -25 -> -15 to hit (never picked) | 50.0% | 8 |
+| 5 | AI: pin worth 0.35 of output, not 0.1 (Suppress now 1.8%) | 58.0% | 8 |
+| 6 | Shove pushes 2 tiles (MOD-7 ruling; never picked: Ram jab did its job for less) | 55.0% | 8 |
+| 7 | Directorate skill -5 -> 0 | 55.0%, reverted | 8 |
+| 8 | a sixth Directorate walker (rifle at 12,6) | 10.0%, reverted | 7 |
+| 9 | Lantern starting nerve -1 (Marlow 7, Okonjo 6, Varga 5, Haldane 5): Steady is earned, not given | 40.0%; **46.0% over 200** | 8 |
+| 10 | Directorate skill -5 -> -2 (200) | 49.5%, reverted | 8 |
+| 11 | WEDGE body HP 105 -> 115 (200) | **41.5%** | 8 |
+
+Why step 9: Marlow started Steady (+10 to hit from the first shot, the signature at once), and nerve from landing hits kept the Lanterns there; the planner pressed that every phase. Why step 11: skill is inside the noise at 200 battles (step 10), durability is not.
+
+## Gate runs (2026-11-26, after pass 2)
+| battles | player win | timeouts | median rounds | player walkers lost | hostile lost | salvage per win | violations |
+|---|---|---|---|---|---|---|---|
+| 200 | 41.5% | 0 | 8 | 2.92 | 3.54 | 20.5 | 0 |
+
+| opponent | seat | battles | normal (AI v2) wins |
+|---|---|---|---|
+| random | hostile | 100 | 100 |
+| random | player | 100 | 100 |
+| random | **both** | 200 | **100.0%** |
+| simple | hostile | 100 | 91 |
+| simple | player | 100 | 73 |
+| simple | **both** | 200 | **82.0%** |
+determinism (seed 7 replay): ok
+
+**Orders used (200 battles, before step 11; step 11 moved no share by more than 0.3 points):** walk 42.3%, Double tap 8.4%, Burst 4.8%, Overdrive 4.1%, Ram jab 3.8%, Strike 3.6%, High explosive 3.2%, Shunt 3.0%, Braced shot 3.0%, Kick 2.9%, Dash 2.7%, Shot 2.5%, Cover lane 2.3%, Suppress 2.1%, Patch 2.0%, Snap 1.8%, Bash 1.7%, Brace 1.3%, Salvo 1.1%, Grab 0.7%, Aimed pair 0.6%, Smoke 0.5%, Mark 0.3%, Throw 0.3%, Guard 0.2%, Pivot 0.2%, Shove 0.2%, Drive-through 0.2%, then the once-a-battle signatures and Plant and Tow at 0.1% or less. Every mode and maneuver is now picked except Tagged salvo, which Marrow Yard cannot set up (no sensor on the Directorate side, no missiles on ours).
+
+**Under the 3% bar but kept:** Aimed pair, Smoke, Mark, Throw, Guard, Shove, Drive-through, Grab, Plant, Tow and the signatures are situational by design (a part to call, a screen, a lane, a ledge, a downed ally); each is picked by AI v2 when the situation is there. The bar was meant for options that are never right; none of these is.

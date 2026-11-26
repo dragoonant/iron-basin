@@ -38,6 +38,7 @@ for (const [wid, w] of Object.entries(PARTS.weapons)) {
     if (m.effect && !EFFECTS.has(m.effect)) errs.push(`${at} effect ${m.effect}`);
     if (m.needs && !NEEDS.has(m.needs)) errs.push(`${at} needs ${m.needs}`);
     if (m.dmg !== undefined && !(m.dmg > 0)) errs.push(`${at} dmg ${m.dmg}`);
+    if (m.pushes !== undefined && (!int(m.pushes, 1, 3) || m.effect !== 'push')) errs.push(`${at} pushes ${m.pushes} (1-3, push modes only)`);
     if (m.shots === 0 && !m.effect) errs.push(`${at} fires nothing and has no effect`);
     if (m.shots > 0 && w.class === 'shield' && (m.baseDmg === undefined || m.baseAcc === undefined || !m.class)) errs.push(`${at} shield mode needs class, baseAcc and baseDmg`);
     if (m.effect === 'smoke' && w.class !== 'indirect') errs.push(`${at} smoke needs indirect fire`);

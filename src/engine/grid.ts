@@ -83,40 +83,53 @@ export function stepCost(s: BattleState, from: Pos, to: Pos, hop = false): numbe
 
 export interface Reach { x: number; y: number; cost: number; path: Pos[] }
 
-/** TRN-3: tiles a walker can end on within `budget`, with paths. Enemies block; allies can be passed but not ended on. */
+/** TRN-3: tiles a walker can end on within `budget`, with paths. Enemies block; allies can be passed but not ended on.
+ * Dijkstra over a small binary heap; ties resolve in neighbour order (E, W, S, N), so paths are deterministic. */
 export function reachable(s: BattleState, u: Unit, budget: number, from: Pos = u, hop = false): Reach[] {
-  const best = new Map<string, { cost: number; prev: string | null; x: number; y: number }>();
-  const start = key(from.x, from.y);
-  best.set(start, { cost: 0, prev: null, x: from.x, y: from.y });
-  const open: string[] = [start];
-  while (open.length) {
-    open.sort((p, q) => best.get(p)!.cost - best.get(q)!.cost);
-    const k = open.shift()!;
-    const cur = best.get(k)!;
+  const n = s.w * s.h;
+  const occ = new Array<Unit | null>(n).fill(null);
+  for (const o of s.units) if (o.alive) occ[o.y * s.w + o.x] = o;
+  const cost = new Array<number>(n).fill(Infinity);
+  const prev = new Int32Array(n).fill(-1);
+  const order = new Int32Array(n).fill(0);
+  const start = from.y * s.w + from.x;
+  cost[start] = 0;
+  // Heap of [cost, seq, index]; seq keeps insertion order for ties, as the sorted list did before.
+  const heap: [number, number, number][] = [[0, 0, start]];
+  let seq = 1;
+  const less = (a: [number, number, number], b: [number, number, number]) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
+  const pushH = (e: [number, number, number]) => { heap.push(e); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (!less(heap[i]!, heap[p]!)) break; [heap[i], heap[p]] = [heap[p]!, heap[i]!]; i = p; } };
+  const popH = (): [number, number, number] => { const top = heap[0]!; const last = heap.pop()!; if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && less(heap[l]!, heap[m]!)) m = l; if (r < heap.length && less(heap[r]!, heap[m]!)) m = r; if (m === i) break; [heap[i], heap[m]] = [heap[m]!, heap[i]!]; i = m; } } return top; };
+  const done = new Uint8Array(n);
+  let k = 0;
+  while (heap.length) {
+    const [c, , i] = popH();
+    if (done[i] || c > cost[i]!) continue;
+    done[i] = 1; order[i] = k++;
+    const x = i % s.w, y = (i - x) / s.w;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-      const nx = cur.x + dx, ny = cur.y + dy;
-      const c = stepCost(s, cur, { x: nx, y: ny }, hop);
-      if (!isFinite(c)) continue;
-      const other = unitAt(s, nx, ny);
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h) continue;
+      const sc = stepCost(s, { x, y }, { x: nx, y: ny }, hop);
+      if (!isFinite(sc)) continue;
+      const j = ny * s.w + nx;
+      const other = occ[j];
       if (other && other.id !== u.id && other.side !== u.side) continue;
-      const nc = cur.cost + c;
-      if (nc > budget) continue;
-      const nk = key(nx, ny);
-      const old = best.get(nk);
-      if (!old || nc < old.cost) {
-        best.set(nk, { cost: nc, prev: k, x: nx, y: ny });
-        if (!open.includes(nk)) open.push(nk);
-      }
+      const nc = c + sc;
+      if (nc > budget || nc >= cost[j]!) continue;
+      cost[j] = nc; prev[j] = i;
+      pushH([nc, seq++, j]);
     }
   }
   const out: Reach[] = [];
-  for (const [k, v] of best) {
-    const occupant = unitAt(s, v.x, v.y);
+  for (let i = 0; i < n; i++) {
+    if (!isFinite(cost[i]!)) continue;
+    const occupant = occ[i];
     if (occupant && occupant.id !== u.id) continue;
     const path: Pos[] = [];
-    let c: string | null = k;
-    while (c) { const n: { cost: number; prev: string | null; x: number; y: number } = best.get(c)!; path.unshift({ x: n.x, y: n.y }); c = n.prev; }
-    out.push({ x: v.x, y: v.y, cost: v.cost, path });
+    for (let c = i; c !== -1; c = prev[c]!) path.unshift({ x: c % s.w, y: Math.floor(c / s.w) });
+    out.push({ x: i % s.w, y: Math.floor(i / s.w), cost: cost[i]!, path });
   }
+  void order;
   return out;
 }
