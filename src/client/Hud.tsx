@@ -238,6 +238,27 @@ function PatchPanel({ s, a, close, hot }: { s: BattleState; a: Unit; close: () =
   );
 }
 
+/** Three one-time hints for the first phase (the combat v2 essentials); seen once per browser. */
+const HINTS = [
+  'Every walker has drive each phase: a walk costs 1, a fire mode 1 to 3. Stand down with drive left to keep up to 2 in reserve for return fire.',
+  'Tap an enemy to see every mode and move against it. Side shots get +10, rear shots +20 and can hit the backpack. Mind your own facing: the Face buttons are free right after a walk.',
+  'The yard is a weapon: stand on the rails next to a wagon and shunt it; push walkers off the platform or into the water; knock down a damaged container stack.',
+];
+const HINT_KEY = 'ib-hints-seen';
+function hintsSeen(): boolean { try { return localStorage.getItem(HINT_KEY) === '1'; } catch { return false; } }
+function FirstHints({ s }: { s: BattleState }) {
+  const [i, setI] = useState(() => (hintsSeen() ? HINTS.length : 0));
+  if (i >= HINTS.length || s.round > 1 || s.phase !== 'player') return null;
+  const next = () => { audio.play('ui-tick'); if (i + 1 >= HINTS.length) { try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage refused: the hints show again next time */ } } setI(i + 1); };
+  return (
+    <div className="card hint-card" data-testid="hint-card">
+      <div className="ap-title">FIELD NOTE {i + 1} / {HINTS.length}</div>
+      <p className="pencil">{HINTS[i]}</p>
+      <button data-testid="hint-next" onClick={next}>{i + 1 < HINTS.length ? 'Next' : 'Got it'}</button>
+    </div>
+  );
+}
+
 const SELF_MOVES = ['brace', 'plant', 'overdrive', 'breakFree', 'call-the-line', 'shoulder-to-shoulder', 'drill-tempo'];
 const AIM_MOVES = ['dash', 'tow', 'ghost-step'];
 const AIM_HINT: Record<string, string> = {
@@ -304,6 +325,7 @@ export function Hud() {
 
       <div className="feed">{feed.slice(-6).map((f, i) => <div key={i} className={`fl ${f.side}`}>{f.text}</div>)}</div>
 
+      <FirstHints s={s} />
       {banner && clock < banner.until && <div className={`banner ${s.phase}`}><div className="bt">{banner.text}</div><div className="bs">{banner.sub}</div></div>}
 
       <div className="left-col">

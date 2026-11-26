@@ -268,6 +268,12 @@ describe('salvage and hangar', () => {
     expect(sum.move).toBeGreaterThan(0);
     expect(sum.weapons.length).toBeGreaterThan(0);
     expect(deployFrom(c).length).toBe(4);
+    // Combat v2: the summary lists the moves the parts give; a salvaged WEDGE arm teaches Ram jab.
+    const varga = c.roster.find((r) => r.pilot === 'varga')!;
+    expect(walkerSummary(varga).moves).toEqual(expect.arrayContaining(['Dash', 'Hop', 'Mark']));
+    c.inventory.push({ uid: 'w1', kind: 'arm', id: 'arm-dir', hp: 60, paint: 'camo' });
+    const c2 = equip(c, 'varga', 'armL', 'w1');
+    expect(typeof c2 !== 'string' && walkerSummary(c2.roster.find((r) => r.pilot === 'varga')!).moves).toContain('Ram jab');
   });
 });
 

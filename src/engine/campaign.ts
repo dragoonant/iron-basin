@@ -1,6 +1,7 @@
 // Between battles: the roster, the parts inventory and credits (SAL-1, HGR-1..4). Pure functions over plain JSON.
 import { arm, body, legs, MISSIONS, pack, RULES, weapon } from './data';
-import { maxHp, modes, stats, weapons } from './query';
+import { maneuversOf, maxHp, modes, stats, weapons } from './query';
+import { PARTS } from './data';
 import { makeUnit, type Deploy } from './step';
 import type { BattleState, Build, Paint, PaintSlot, PartSlot, SalvageItem, Unit } from './types';
 
@@ -80,6 +81,8 @@ export function walkerSummary(r: RosterWalker) {
       modes: modes(u).filter((m) => m.slot === w.slot).map((m) => ({ id: m.mode.id, name: m.mode.name, dp: m.dp, shots: m.shots, dmg: Math.round(m.dmg), acc: m.acc })),
     })),
     max: { body: maxHp(u, 'body'), armL: maxHp(u, 'armL'), armR: maxHp(u, 'armR'), legs: maxHp(u, 'legs') },
+    /** HGR-4 (combat v2): the maneuvers its parts give, by name, so a swap can show what it gains and loses. */
+    moves: [...new Set(maneuversOf(u).filter((m) => !PARTS.universal.includes(m.id) && m.def.kind !== 'signature').map((m) => m.def.name))],
   };
 }
 

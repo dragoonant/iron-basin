@@ -55,7 +55,7 @@ Repair is the Patch order (spec 15 MAN-10).
 - **HGR-1** Between battles the player may move parts and weapons between walkers and the inventory. A walker must keep a body, two arms and legs; weapons need an arm to sit in.
 - **HGR-2** Repairing a part costs `repairCost` credits per HP; a lost part can be repaired from 0.
 - **HGR-3** Repainting a salvaged part in company colours costs `repaintCost` credits and changes nothing but its paint.
-- **HGR-4** The hangar shows each walker's move, evasion, weight against power and its weapons' numbers from `query.*` before and after a change.
+- **HGR-4** The hangar shows each walker's drive, move, evasion, weight against power, its weapons' modes and the maneuvers its parts give, from `query.*`, before and after a change (a swap lists the moves it gains and loses).
 
 ## 9. Save
 - **SAV-1** The game saves after every accepted action, when a battle starts and on every hangar change, under `localStorage['ib-save']`, as one versioned envelope (screen, campaign, battle setup, seed, action list, state snapshot). The snapshot is what reopens.

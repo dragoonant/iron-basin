@@ -10,10 +10,16 @@ test('title, briefing with voiced lines, battle', async ({ page }) => {
   await expect(page.getByTestId('speaker')).toContainText('Marrow Yard');
   await page.click('text=Next'); await page.click('text=Next');
   await expect(page.getByTestId('yard-plan')).toBeVisible();
+  await expect(page.getByTestId('note-wagons')).toBeVisible();
   await page.click('[data-testid=skip-brief]');
   await page.click('[data-testid=deploy]');
   await expect(page.getByTestId('hud')).toBeVisible();
   await expect(page.getByTestId('phase')).toHaveText('YOUR PHASE');
+  // Three one-time field notes in the first phase, then never again.
+  await expect(page.getByTestId('hint-card')).toContainText('FIELD NOTE 1 / 3');
+  for (let i = 0; i < 3; i++) await page.click('[data-testid=hint-next]');
+  await expect(page.getByTestId('hint-card')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('ib-hints-seen'))).toBe('1');
   await page.screenshot({ path: 'e2e/out/battle.png' });
   expect(errors).toEqual([]);
 });

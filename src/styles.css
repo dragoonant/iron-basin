@@ -137,6 +137,9 @@ h1, h2 { font-family: var(--ib-stencil); font-weight: 900; letter-spacing: 0.06e
 .pips i.on { background: var(--ib-orange); opacity: 1; }
 .pips.reserve i { border-color: var(--ib-chalk); }
 .pips.reserve i.on { background: var(--ib-chalk); }
+.hint-card { position: absolute; top: 56px; left: 50%; transform: translateX(-50%) rotate(-0.6deg); width: min(440px, 52vw); z-index: 4; }
+.hint-card p { margin: 4px 0 8px; font-size: 15px; line-height: 1.3; }
+.stats.moves { margin: 4px 0; }
 .nerve-row { font-size: 11.5px; color: var(--ib-dim); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
 .nerve-row b { color: var(--ib-chalk); font-weight: 500; }
 .nerve-track { position: relative; width: 84px; height: 7px; border: 1px solid rgba(233, 228, 214, 0.35); }
@@ -212,6 +215,8 @@ h1, h2 { font-family: var(--ib-stencil); font-weight: 900; letter-spacing: 0.06e
   .orders { left: calc(min(260px, 42vw) + 18px); right: 8px; bottom: 8px; transform: none; max-width: none; justify-content: flex-end; gap: 5px; }
   .orders .hint { font-size: 12px; padding: 4px 8px; }
   .fire-list { max-height: 46vh; }
+  .hint-card { top: 46px; width: min(380px, 46vw); left: auto; right: 8px; transform: none; }
+  .hint-card p { font-size: 12px; }
   .unit-card .weps { display: none; }
   .feed { display: none; }
   .orders button { padding: 6px 9px; }

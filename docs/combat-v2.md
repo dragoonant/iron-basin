@@ -6,7 +6,7 @@
 
 **The one-line pitch:** *every walker has a budget of drive to spend each phase, and what it can spend it on comes from the parts bolted to it, the ground it stands on and the nerve of the person inside.*
 
-Status: **slices 5a-5g done** (2026-11-26); every spec 15 rule plays, AI v2 uses nearly all of it, balance pass 2 is recorded. Left: polish (5h). The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
+Status: **M5 done** (2026-11-26): slices 5a-5h. Every spec 15 rule plays, AI v2 uses nearly all of it, balance pass 2 is recorded, and the hangar, briefing and first phase teach it. The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
 
 ---
 
@@ -137,7 +137,7 @@ Nerve is how the pilots show up on the field, not only in the briefing. Pilot le
 | **5e** ✓ | Nerve and signatures | NRV | done 2026-11-26: nerve gauge and signature buttons in the HUD; AI vs AI 46.0% |
 | **5f** ✓ | AI v2: plans a sequence (walk, action, walk) inside the drive budget with a small beam search; values flanks, push into hazards, keeping reserve when threatened, wagon lines | ARCH-4 | done 2026-11-26: beats random 100% and simple 82% (`80-sim.md`) |
 | **5g** ✓ | Balance pass 2 and usage telemetry: `sim` reports how often each mode and maneuver is used, and a mode below 3% of actions is redesigned or cut | | done 2026-11-26: AI vs AI 41.5%, median 8 rounds; Overdrive strain 15, Suppress -15, Shove 2 tiles, Lantern nerve -1, WEDGE body 115 |
-| **5h** | Hangar moveset view, briefing notes, first-phase hints, phone landscape check (844×390), save v2, Artifact republish | HGR-4, SAV | e2e full contract on v2; `check:look` |
+| **5h** ✓ | Hangar moveset view, briefing notes, first-phase hints, phone landscape check (844×390), save v2, Artifact republish | HGR-4, SAV | done 2026-11-26: hangar shows the moves each swap gains and loses; three pencil notes on the yard plan; three one-time field notes in the first phase; phone layout checked at 844×390; save v2 (5b); Artifact republished |
 
 Contract 2 (Kerrow Locks) moves to M6, built on v2 with the lock gate and the swing bridge.
 

@@ -73,6 +73,13 @@ function YardPlan() {
       <text x={1.2 * S} y={13 * S} className="pencil" fill="#ff8a2a" transform={`rotate(-80 ${1.2 * S} ${13 * S})`}>VARGA</text>
       <text x={8.2 * S} y={14.4 * S} className="pencil" fill="#ff8a2a">MARLOW, OKONJO,</text><text x={8.2 * S} y={15.2 * S} className="pencil" fill="#ff8a2a">HALDANE</text>
       <text x={6.6 * S} y={6.2 * S} className="pencil" fill="#e9e4d6">↑ platform: high ground</text>
+      {/* Combat v2 notes: the wagons, the flank, the reserve. */}
+      <path d={`M${4.5 * S} ${10.2 * S} L${4.5 * S} ${6.4 * S}`} stroke="#e9e4d6" strokeWidth={3} strokeDasharray="7 4" fill="none" markerEnd="url(#arrw)" />
+      <text x={5.15 * S} y={10.1 * S} className="pencil" fill="#e9e4d6" data-testid="note-wagons" transform={`rotate(-90 ${5.15 * S} ${10.1 * S})`}>shunt the wagons</text>
+      <path d={`M${12.2 * S} ${12.6 * S} C ${12.6 * S} ${10.6 * S}, ${11.6 * S} ${9.2 * S}, ${10.4 * S} ${8.6 * S}`} stroke="#ff8a2a" strokeWidth={3} strokeDasharray="6 4" fill="none" markerEnd="url(#arr)" />
+      <text x={13.9 * S} y={13.5 * S} className="pencil" fill="#ff8a2a" textAnchor="end" data-testid="note-flank">flank +10, rear +20</text>
+      <text x={0.3 * S} y={17.6 * S} className="pencil" fill="#ff8a2a" data-testid="note-reserve">keep 1 back: return fire</text>
+      <defs><marker id="arrw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#e9e4d6" /></marker></defs>
     </svg>
   );
 }
