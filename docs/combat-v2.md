@@ -6,7 +6,7 @@
 
 **The one-line pitch:** *every walker has a budget of drive to spend each phase, and what it can spend it on comes from the parts bolted to it, the ground it stands on and the nerve of the person inside.*
 
-Status: **slices 5a and 5b done** (2026-11-26); the turn plays on v2. The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
+Status: **slices 5a, 5b and 5c done** (2026-11-26); the turn and the maneuvers play on v2. The exact rules are `docs/spec/15-combat-v2.md` (63 ids, 17 rulings; where it differs from this page, the spec wins) and the data carries every mode, maneuver, drive, nerve, facing, rail and stack. Section 9 gives the build order. Each slice lands with its rule ids in `docs/spec/10-rules.md`, tests named by id, and a `sim` record in `80-sim.md`. All numbers below are first guesses *(tune)*.
 
 ---
 
@@ -132,7 +132,7 @@ Nerve is how the pilots show up on the field, not only in the briefing. Pilot le
 |---|---|---|---|
 | **5a** ✓ | Spec and data: `docs/spec/15-combat-v2.md` (DRV, HIT, MOD, FAC, MAN, RCT, FLD, NRV with rulings, and which spec 10 ids each slice retires). `modes` on every weapon, `maneuvers` on every part, `universal` and `maneuvers` in `parts.json`, `drive` on bodies, `nerve` and `signature` on pilots, `facing`, `rails` and `stacks` in the mission | all | done 2026-11-25: `validate:data` checks every mode and maneuver; `tests/v2.test.ts` holds a pending test per id and the coverage test checks it |
 | **5b** ✓ | Core loop: state `v: 2`, drive, walks, fire modes, facing and arcs, backpack hits, undo; plus reactions (return fire, overwatch, guard), push, knockdown and smoke, which the modes need; retired 9 spec 10 ids | DRV, HIT, MOD, FAC, RCT, FLD-1/2/6/8, MAN-10 | done 2026-11-26: AI vs AI 41.5%, median 11 rounds, normal vs random 100% (`80-sim.md`) |
-| **5c** | Maneuvers and the field: kick, ram jab, grab, throw, dash, hop, brace, plant, overdrive, mark, tow; rolling wagons and toppling stacks (push, fall, knockdown and smoke landed in 5b) | FLD, the maneuver rows | presenter beats for each; e2e: kick a wagon down line x 4 |
+| **5c** ✓ | Maneuvers and the field: kick, ram jab, grab, throw, dash, hop, brace, plant, overdrive, mark, tow; rolling wagons and toppling stacks (push, fall, knockdown and smoke landed in 5b) | FLD, the maneuver rows | done 2026-11-26: coupled wagons roll as a rake (FLD-3 ruling); AI vs AI 42.5%, median 10 rounds |
 | **5d** | (folded into 5b) | | |
 | **5e** | Nerve and signatures | NRV | the nerve gauge and signatures show in the HUD |
 | **5f** | AI v2: plans a sequence (walk, action, walk) inside the drive budget with a small beam search; values flanks, push into hazards, keeping reserve when threatened, wagon lines | ARCH-4 | `bench:ai`: v2 beats random ≥ 90% and beats the v1 AI (kept as `simple`) ≥ 65% |

@@ -46,3 +46,16 @@ All three targets for M5 hold already: AI vs AI 30-45% (41.5%), median rounds 12
 **Orders used** (share of 23,450 non-end orders): walk 47.3%, Double tap 14.7%, Burst 8.1%, Snap 6.1%, High explosive 4.9%, Strike 4.3%, Shot 4.0%, Braced shot 3.7%, Patch 2.1%, Bash 2.0%, Salvo 1.6%, Pivot 0.6%, Shove 0.3%, Drive-through 0.3%.
 
 **Never picked by the AI:** Aimed pair, Suppress, Smoke, Cover lane, Guard, Tagged salvo (needs Mark, slice 5c). The first five are a gap in the one-pass AI, which scores only expected damage: it has no value for a called part, a pin, a screen, a lane or a guard. They are the first job of AI v2 (5f). Under 3% (the 5g bar) but picked: Pivot, Shove, Drive-through. No number is changed for them until AI v2 can use them; then 5g decides.
+
+## Combat v2, slice 5c (2026-11-26): maneuvers and the field, no number changed
+Part maneuvers (Dash, Hop, Kick, Brace, Plant, Ram jab, Grab, Throw, Overdrive, Mark, Tow), rolling wagon rakes and toppling stacks. The AI adds Kick, Ram jab and Throw to its shot list, marks for allies still to act, and shunts a wagon when the rake's first walker would be an enemy.
+
+| battles | player win | timeouts | median rounds | player walkers lost | hostile lost | salvage per win | violations |
+|---|---|---|---|---|---|---|---|
+| 200 | 42.5% | 0 | 10 | 3.13 | 3.88 | 20.6 | 0 |
+
+Normal vs random: 100% (both seats). Determinism ok.
+
+**Orders used:** walk 43.3%, Double tap 12.5%, Burst 8.4%, Ram jab 6.1%, High explosive 4.8%, Strike 4.7%, Kick 3.5%, Shot 3.3%, Snap 2.9%, Braced shot 2.3%, Bash 2.1%, Patch 2.0%, Salvo 1.6%, Mark 1.4%, Shunt 0.4%, Pivot 0.4%, Throw 0.3%, Drive-through 0.2%. Ram jab took Shove's place: both push, Ram jab is cheaper.
+
+**Never picked by the AI:** Aimed pair, Suppress, Smoke, Cover lane, Guard, Shove, Grab, Dash, Brace, Plant, Overdrive, Tow, Tagged salvo. Shunt shows up only when a walker happens to end next to a wagon; AI v2 must walk to the rails on purpose. Tagged salvo cannot come up on Marrow Yard as built: only the Directorate carries missiles and only the Lanterns carry a sensor mast (it needs a salvaged missile box or sensor).

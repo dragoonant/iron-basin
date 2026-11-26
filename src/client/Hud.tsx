@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { MISSIONS, pack, pilot as pilotDef, RULES } from '../engine/data';
 import { dist } from '../engine/grid';
 import {
-  callable, fireBlock, living, maxHp, modes, patchCost, pivotCost, preview, shaken, stats, steady, unitById, weapons, type ModeInfo,
+  callable, fireBlock, living, maneuverBlock, maneuverPreview, maneuversOf, maxHp, modes, patchCost, pivotCost, preview, shaken, shuntDir, stats, steady,
+  unitById, weapons, type ManeuverOption, type ModeInfo,
 } from '../engine/query';
 import type { Arc, BattleState, Facing, HitSlot, PartSlot, Unit } from '../engine/types';
 import { audio } from './audio';
@@ -56,6 +57,11 @@ function statusChips(u: Unit): string[] {
   if (u.overwatch) out.push(`COVERING ${u.overwatch.dir}`);
   if (u.guarding.length) out.push('GUARDING');
   if (u.holdFire) out.push('HOLD FIRE');
+  if (u.status.braced) out.push('BRACED');
+  if (u.status.planted) out.push('PLANTED');
+  if (u.status.markedBy) out.push('MARKED');
+  if (u.status.grabbedBy) out.push('HELD');
+  if (u.grip) out.push('HOLDING');
   if (steady(u)) out.push('STEADY');
   if (shaken(u)) out.push('SHAKEN');
   return out;
@@ -74,7 +80,7 @@ function UnitCard({ s, u, compact }: { s: BattleState; u: Unit; compact?: boolea
         <div>
           <div className="call">{p.call}</div>
           <div className="pname">{p.name}</div>
-          <div className="stats"><b>MOVE</b> {st.move} <b>EVADE</b> {st.evade} <b>WT</b> {st.weight}/{st.power}{st.overweight ? ' OVER' : ''} <b>FACING</b> {u.facing}</div>
+          <div className="stats"><b>MOVE</b> {st.move} <b>EVADE</b> {st.evade} <b>WT</b> {st.weight}/{st.power}{st.overweight ? ' OVER' : ''} <b>FACING</b> {u.facing} <b>NERVE</b> {u.nerve}/{RULES.nerve.max}</div>
           {u.alive && (
             <div className="drive-row" data-testid={`drive-${u.id}`}>
               {myTurn ? <><b>DRIVE</b> <Pips n={u.done ? 0 : u.drive} of={st.drive} kind="drive" /> {u.done ? 'stood down' : `${u.drive} left`}</> : <><b>RESERVE</b> <Pips n={u.reserve} of={RULES.drive.reserveCap} kind="reserve" /> {u.reserve} for reactions</>}
@@ -95,7 +101,8 @@ function UnitCard({ s, u, compact }: { s: BattleState; u: Unit; compact?: boolea
             </div>
           ))}
           {pack(u.build.pack).kind === 'repair' && <div className="wep"><span className="ws">PACK</span><span className="wn">{pack(u.build.pack).name}</span><span className="wd">Patch {patchCost()} · +{pack(u.build.pack).heal} · {u.charges} left</span></div>}
-          {pack(u.build.pack).kind === 'sensor' && <div className="wep"><span className="ws">PACK</span><span className="wn">{pack(u.build.pack).name}</span><span className="wd">spots for mortars to {pack(u.build.pack).sensorRange}</span></div>}
+          {pack(u.build.pack).kind === 'sensor' && <div className="wep"><span className="ws">PACK</span><span className="wn">{pack(u.build.pack).name}</span><span className="wd">spots for mortars to {pack(u.build.pack).sensorRange} · Mark 1</span></div>}
+          <div className="wep"><span className="ws">MOVES</span><span className="wn">{maneuversOf(u).filter((m) => !['pivot', 'patch', 'mark', 'breakFree'].includes(m.id)).map((m) => `${m.def.name}${m.slot ? ` (${m.slot})` : ''}${m.def.kind === 'trait' ? '' : ` ${m.def.dp}`}${m.def.nerve ? `+${m.def.nerve}N` : ''}`).join(' · ')}</span></div>
         </div>
       )}
       {canToggle && (
@@ -136,6 +143,18 @@ function FireRow({ s, a, t, mi }: { s: BattleState; a: Unit; t: Unit; mi: ModeIn
   );
 }
 
+function ManeuverRow({ s, a, t, m }: { s: BattleState; a: Unit; t: Unit; m: ManeuverOption }) {
+  const why = maneuverBlock(s, a, m.id, m.slot, t, null);
+  const label = <><span className="fr-w">{m.def.name}{m.slot ? ` · ${m.slot === 'L' ? 'left' : 'right'} arm` : ''}</span><span className="fr-dp">{m.def.dp} DP{m.def.nerve ? ` · ${m.def.nerve} nerve` : ''}</span></>;
+  if (why) return <div className="fire-row off" data-testid={`man-${m.id}`}>{label}<span className="fr-n">{why}</span></div>;
+  const go = () => { audio.play('confirm'); useGame.getState().maneuver(m.id, { target: t.id, ...(m.slot ? { slot: m.slot } : {}) }); };
+  if (m.id === 'mark') return <button className="fire-row" data-testid="man-mark" onClick={go}>{label}<span className="fr-c">auto</span><span className="fr-d">+{RULES.markBonus}</span><span className="fr-n">your side gets +{RULES.markBonus} to hit it until your next phase; unlocks Tagged salvo</span></button>;
+  const p = maneuverPreview(s, a, m.id, m.slot, t)!;
+  const fx = m.id === 'grab' ? 'holds it: no walking until it breaks free' : m.def.effect === 'push' ? 'pushes on a hit' : '';
+  const notes = [ARC_NOTE[p.arc], m.def.call ? `always the ${m.def.call}` : '', fx, p.counter ? `return fire ${p.counter.chance}% ${p.counter.shots}× ${p.counter.dmg[0]}-${p.counter.dmg[1]}` : 'no return fire'].filter(Boolean).join(' · ');
+  return <button className="fire-row" data-testid={`man-${m.id}`} onClick={go}>{label}<span className="fr-c">{p.chance}%</span><span className="fr-d">{p.dmg[1] > 0 ? `1× ${p.dmg[0]}-${p.dmg[1]}` : 'no damage'}</span><span className="fr-n">{notes}</span></button>;
+}
+
 function AttackPanel({ s, a, t }: { s: BattleState; a: Unit; t: Unit }) {
   const cancel = () => useGame.getState().setTarget(null);
   const rows = modes(a).filter((m) => m.shots > 0 && !m.mode.target && m.weapon.usable);
@@ -144,7 +163,10 @@ function AttackPanel({ s, a, t }: { s: BattleState; a: Unit; t: Unit }) {
     <div className="card attack-panel" data-testid="attack-panel">
       <div className="ap-title">FIRE ON {t.id === 'hallen' ? 'HALLEN' : pilotDef(t.pilot).call} <span className="dist">{dist(a, t)} tiles · {a.drive} drive</span></div>
       <UnitCard s={s} u={t} compact />
-      <div className="fire-list">{[...rows].sort((x, y) => order(x) - order(y)).map((mi) => <FireRow key={`${mi.slot}-${mi.mode.id}`} s={s} a={a} t={t} mi={mi} />)}</div>
+      <div className="fire-list">
+        {[...rows].sort((x, y) => order(x) - order(y)).map((mi) => <FireRow key={`${mi.slot}-${mi.mode.id}`} s={s} a={a} t={t} mi={mi} />)}
+        {maneuversOf(a).filter((m) => m.def.kind === 'attack' || m.id === 'mark').map((m) => <ManeuverRow key={`${m.id}-${m.slot}`} s={s} a={a} t={t} m={m} />)}
+      </div>
       <button className="ghost" onClick={cancel}>Cancel</button>
     </div>
   );
@@ -168,6 +190,12 @@ function ObjectPanel({ s, a, x, y }: { s: BattleState; a: Unit; x: number; y: nu
           </button>
         );
       })}
+      {shuntDir(s, a, { x, y }) && (
+        <button className="fire-row" data-testid="man-shunt" disabled={!!maneuverBlock(s, a, 'shunt', null, null, { x, y })} onClick={() => { audio.play('confirm'); useGame.getState().maneuver('shunt', { x, y }); }}>
+          <span className="fr-w">Shunt wagon</span><span className="fr-dp">2 DP</span><span className="fr-c">auto</span><span className="fr-d">−{RULES.wagon.dmg}</span>
+          <span className="fr-n">{maneuverBlock(s, a, 'shunt', null, null, { x, y }) ?? `rolls it ${shuntDir(s, a, { x, y }) === 'N' ? 'north' : 'south'} up to ${RULES.wagon.roll} tiles; the first walker in its way is knocked off the track`}</span>
+        </button>
+      )}
       <button className="ghost" onClick={() => useGame.setState({ targetObj: null })}>Cancel</button>
     </div>
   );
@@ -191,7 +219,11 @@ function PatchPanel({ s, a, close }: { s: BattleState; a: Unit; close: () => voi
   );
 }
 
+const SELF_MOVES = ['brace', 'plant', 'overdrive', 'breakFree'];
+const AIM_MOVES = ['dash', 'tow'];
 const AIM_HINT: Record<string, string> = {
+  dash: 'Tap a tile within dash reach (move +3, costs 1 nerve). Tap the walker to cancel.',
+  tow: 'Tap an adjacent ally to drag it one tile, behind you.',
   smoke: 'Tap a tile in mortar range to lay a 3×3 screen. Tap the walker to cancel.',
   overwatch: 'Tap a tile straight out from the walker: the lane it covers in the Directorate phase.',
   guard: 'Tap an adjacent ally to guard it with the shield.',
@@ -205,6 +237,7 @@ export function Hud() {
   const target = useGame((g) => g.target);
   const targetObj = useGame((g) => g.targetObj);
   const aim = useGame((g) => g.aim);
+  const maneuverAim = useGame((g) => g.maneuverAim);
   const banner = useGame((g) => g.banner);
   const clock = useGame((g) => g.clock);
   const feed = useGame((g) => g.feed);
@@ -234,6 +267,7 @@ export function Hud() {
   };
   const free = canAct && sel ? freeFacing(liveState, sel.id) : false;
   const aimMi = aim && sel ? modes(sel).find((x) => x.slot === aim.slot && x.mode.id === aim.mode) : null;
+  const moves = canAct && sel ? maneuversOf(sel).filter((m) => SELF_MOVES.includes(m.id) || AIM_MOVES.includes(m.id)) : [];
 
   return (
     <div className="hud" data-testid="hud">
@@ -268,7 +302,7 @@ export function Hud() {
           <>
             {canAct && sel && (
               <>
-                <span className="hint">{aimMi ? AIM_HINT[aimMi.mode.effect ?? ''] : sel.walked ? `${sel.drive} drive left. Fire, walk again, turn, or stand down to keep up to ${RULES.drive.reserveCap} for reactions.` : `${sel.drive} drive. Blue: walk (1). Red: tap an enemy for fire modes.`}</span>
+                <span className="hint">{maneuverAim ? AIM_HINT[maneuverAim] : aimMi ? AIM_HINT[aimMi.mode.effect ?? ''] : sel.walked ? `${sel.drive} drive left. Fire, walk again, turn, or stand down to keep up to ${RULES.drive.reserveCap} for reactions.` : `${sel.drive} drive. Blue: walk (1). Red: tap an enemy for fire modes.`}</span>
                 {sel.lastWalk && !sel.lastWalk.reacted && <button data-testid="undo" onClick={() => { audio.play('cancel'); useGame.getState().dispatch({ type: 'undoWalk', unit: sel.id }); }}>Undo walk</button>}
                 <span className="facing" data-testid="facing">
                   <span className="fl-label">FACE {free ? 'free' : `${pivotCost()} DP`}</span>
@@ -279,6 +313,17 @@ export function Hud() {
                     {mi.mode.name} {mi.dp}
                   </button>
                 ))}
+                {moves.map((m) => {
+                  const aimOnly = AIM_MOVES.includes(m.id);
+                  const why = aimOnly ? (sel.drive < m.def.dp ? `needs ${m.def.dp} drive` : m.def.nerve && sel.nerve < m.def.nerve ? `needs ${m.def.nerve} nerve` : m.id === 'dash' && sel.status.grabbedBy ? 'held' : null) : maneuverBlock(s, sel, m.id, m.slot, null, null);
+                  if (m.id === 'breakFree' && !sel.status.grabbedBy) return null;
+                  const on = maneuverAim === m.id;
+                  return (
+                    <button key={m.id} data-testid={`move-${m.id}`} className={on ? 'on' : ''} disabled={!!why} onClick={() => { audio.play('ui-tick'); if (aimOnly) useGame.getState().setManeuverAim(on ? null : m.id); else useGame.getState().maneuver(m.id); }}>
+                      {m.def.name} {m.def.dp}{m.def.nerve ? `+${m.def.nerve}N` : ''}
+                    </button>
+                  );
+                })}
                 {canPatch && <button onClick={() => { useGame.setState({ target: null, aim: null }); setPatching(true); }}>Patch {patchCost()}</button>}
                 <button data-testid="stand-down" onClick={() => { audio.play('confirm'); useGame.getState().dispatch({ type: 'standDown', unit: sel.id }); const n = nextReady(); useGame.getState().select(n && n.id !== sel.id ? n.id : null); }}>Stand down{sel.drive > 0 ? ` (keep ${Math.min(RULES.drive.reserveCap, sel.drive)})` : ''}</button>
               </>

@@ -16,7 +16,7 @@ export interface ModeDef {
   class?: WeaponClass; min?: number; max?: number;
   call?: boolean; ignoreCover?: boolean;
   needs?: 'still' | 'charge' | 'marked';
-  effect?: 'pin' | 'push' | 'knockdown' | 'stagger' | 'overwatch' | 'guard' | 'smoke';
+  effect?: 'pin' | 'push' | 'knockdown' | 'stagger' | 'overwatch' | 'guard' | 'smoke' | 'grab';
   target?: 'tile' | 'ally';
 }
 export type ManeuverKind = 'self' | 'walk' | 'trait' | 'attack' | 'stance' | 'support' | 'field' | 'signature';

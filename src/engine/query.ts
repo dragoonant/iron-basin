@@ -1,6 +1,6 @@
 // query.* owns every number the client shows (ARCH-3). Combat v2: spec 15 (DRV, HIT, MOD, FAC, RCT).
-import { arm, body, legs, maneuver, pack, pilot, RULES, weapon, type ModeDef, type WeaponDef } from './data';
-import { ahead, arcOf, dist, DIR, FACINGS, hasCover, hasLos, reachable, tileAt, type Pos, type Reach } from './grid';
+import { arm, body, legs, maneuver, PARTS, pack, pilot, RULES, weapon, type ManeuverDef, type ModeDef, type WeaponDef } from './data';
+import { ahead, arcOf, dirTo, dist, DIR, FACINGS, hasCover, hasLos, reachable, tileAt, unitAt, type Pos, type Reach } from './grid';
 import type { Arc, BattleState, Facing, HitSlot, PartSlot, Reaction, Unit, WeaponSlot } from './types';
 
 export const unitById = (s: BattleState, id: string): Unit | null => s.units.find((u) => u.id === id) ?? null;
@@ -16,7 +16,7 @@ export function maxHp(u: Pick<Unit, 'build'>, part: PartSlot): number {
 export interface Stats { move: number; evade: number; weight: number; power: number; overweight: boolean; drive: number }
 
 /** WLK-2, WLK-3, MAP-6, PIL-2, DRV-7 (overweight costs drive, not move), FLD-2 (knocked down: evasion 0). */
-export function stats(s: BattleState | null, u: Pick<Unit, 'build' | 'pilot' | 'hp'> & Partial<Pick<Unit, 'x' | 'y' | 'status'>>): Stats {
+export function stats(s: BattleState | null, u: Pick<Unit, 'build' | 'pilot' | 'hp'> & Partial<Pick<Unit, 'x' | 'y' | 'status' | 'grip'>>): Stats {
   const b = body(u.build.body), l = legs(u.build.legs), p = pack(u.build.pack);
   const weight = b.weight + arm(u.build.armL).weight + arm(u.build.armR).weight + l.weight + p.weight + (weapon(u.build.wL)?.weight ?? 0) + (weapon(u.build.wR)?.weight ?? 0);
   const overweight = weight > b.power;
@@ -24,6 +24,8 @@ export function stats(s: BattleState | null, u: Pick<Unit, 'build' | 'pilot' | '
   let evade = l.evade + pilot(u.pilot).evade - (overweight ? RULES.overweightEvade : 0);
   if (u.hp.legs <= 0) { move = 1; evade = 0; }
   if (s && u.x !== undefined && u.y !== undefined) { const t = tileAt(s, u.x, u.y); if (t?.t === 'water' && u.hp.legs > 0) evade -= RULES.waterEvade; }
+  if (u.status?.braced) evade += maneuver('brace')?.evade ?? 0;
+  if (u.status?.grabbedBy || (u as Partial<Unit>).grip) evade -= RULES.grabEvade;
   if (u.status?.down) evade = 0;
   return { move: Math.max(1, move), evade, weight, power: b.power, overweight, drive: Math.max(0, b.drive - (overweight ? RULES.drive.overweight : 0)) };
 }
@@ -62,21 +64,46 @@ export function weapons(u: Unit): WeaponInfo[] {
 export const weaponIn = (u: Unit, slot: WeaponSlot): WeaponInfo | null => weapons(u).find((w) => w.slot === slot) ?? null;
 
 export type FireClass = 'direct' | 'melee' | 'indirect';
-/** A weapon's mode with its numbers resolved (HIT-1, HIT-4, MOD-1). */
-export interface ModeInfo {
-  slot: WeaponSlot; weapon: WeaponInfo; mode: ModeDef;
+/** One set of rolls with its numbers resolved: a weapon's fire mode or an attack maneuver (HIT-1, HIT-4, MOD-1, MAN-4). */
+export interface Roll {
+  /** The slot the order uses (DRV-4); null for Kick, which uses the legs. */
+  slot: WeaponSlot | null;
+  /** The arm whose accuracy counts (HIT-1); null for pack weapons and Kick. */
+  arm: 'L' | 'R' | null;
+  /** A weapon id, or `m:<maneuver id>`. */
+  weaponId: string;
+  mode: ModeDef;
+  maneuver: string | null;
+  /** Kick always lands on the legs (MAN-4). */
+  fixedPart: PartSlot | null;
+  splash: number;
   cls: FireClass; min: number; max: number; shots: number; acc: number; dmg: number; dp: number;
 }
+/** A weapon's fire mode. */
+export interface ModeInfo extends Roll { slot: WeaponSlot; weapon: WeaponInfo }
 
 export function resolveMode(w: WeaponInfo, m: ModeDef): ModeInfo {
   const c = m.class ?? w.def.class;
   const cls: FireClass = c === 'melee' ? 'melee' : c === 'indirect' ? 'indirect' : 'direct';
   return {
-    slot: w.slot, weapon: w, mode: m, cls,
+    slot: w.slot, weapon: w, mode: m, cls, arm: w.slot === 'P' ? null : w.slot, weaponId: w.id, maneuver: null, fixedPart: null,
+    splash: cls === 'indirect' ? w.def.splash ?? 0 : 0,
     min: m.min ?? w.def.min, max: m.max ?? w.def.max, shots: m.shots,
     acc: m.baseAcc ?? w.def.acc + (m.acc ?? 0),
     dmg: m.baseDmg ?? w.def.dmg * (m.dmg ?? 1),
     dp: m.dp,
+  };
+}
+
+/** MAN-4, MAN-6, MAN-7: an attack maneuver as a roll. */
+export function maneuverRoll(id: string, slot: WeaponSlot | null): Roll | null {
+  const d = maneuver(id);
+  if (!d || d.kind !== 'attack') return null;
+  const cls: FireClass = d.class === 'melee' ? 'melee' : 'direct';
+  const mode: ModeDef = { id, name: d.name, dp: d.dp, shots: 1, ...(d.effect ? { effect: d.effect } : {}) };
+  return {
+    slot, arm: slot === 'L' || slot === 'R' ? slot : null, weaponId: `m:${id}`, mode, maneuver: id, fixedPart: d.call ?? null, splash: 0,
+    cls, min: d.min ?? 1, max: d.max ?? 1, shots: 1, acc: d.baseAcc ?? 0, dmg: d.baseDmg ?? 0, dp: d.dp,
   };
 }
 
@@ -128,7 +155,7 @@ function needsMet(s: BattleState, u: Unit, mi: ModeInfo, target: Unit): string |
     const p = ahead(u, lw.dir);
     if (p.x !== target.x || p.y !== target.y) return 'the target must stand straight ahead of the walk';
   }
-  if (n === 'marked') return 'the target must be marked (slice 5c)';
+  if (n === 'marked' && target.status.markedBy !== u.side) return 'the target must be marked by your side (Mark)';
   return null;
 }
 
@@ -160,8 +187,11 @@ export function canHitAny(s: BattleState, u: Unit, target: Unit, at: Pos = u): b
 /** HIT-1, HIT-2: one roll's chance. */
 export function hitChance(s: BattleState, u: Unit, slot: WeaponSlot, modeId: string, target: Unit, at: Pos = u, reaction: Reaction | null = null): number {
   const mi = modeIn(u, slot, modeId);
-  if (!mi) return 0;
-  let c = mi.acc + (slot === 'P' ? 0 : arm(slot === 'L' ? u.build.armL : u.build.armR).acc) + pilot(u.pilot).skill;
+  return mi ? chanceOf(s, u, mi, target, at, reaction) : 0;
+}
+
+export function chanceOf(s: BattleState, u: Unit, mi: Roll, target: Unit, at: Pos = u, reaction: Reaction | null = null): number {
+  let c = mi.acc + (mi.arm ? arm(mi.arm === 'L' ? u.build.armL : u.build.armR).acc : 0) + pilot(u.pilot).skill;
   const ht = tileAt(s, at.x, at.y)?.h ?? 0, tt = tileAt(s, target.x, target.y)?.h ?? 0;
   if (ht > tt) c += RULES.heightBonus;
   if (mi.cls !== 'indirect') {
@@ -169,6 +199,7 @@ export function hitChance(s: BattleState, u: Unit, slot: WeaponSlot, modeId: str
     if (arc === 'rear') c += RULES.facing.rearHit;
     else if (arc !== 'front') c += RULES.facing.sideHit;
   } else if (spotted(s, u.side, target, u.id)) c += RULES.spotterBonus;
+  if (target.status.markedBy === u.side) c += RULES.markBonus;
   if (steady(u)) c += RULES.nerve.steadyHit;
   if (shaken(u)) c -= RULES.nerve.shakenHit;
   if (u.status.suppressed) c -= RULES.pinnedHit;
@@ -211,24 +242,29 @@ export function callable(target: Unit, at: Pos): HitSlot[] {
 /** HIT-4 with FAC-5: the damage range of one hit on `part`. */
 export function damageRange(s: BattleState | null, u: Unit, slot: WeaponSlot, modeId: string, target: Unit | null, at: Pos = u, part: HitSlot = 'body'): [number, number] {
   const mi = modeIn(u, slot, modeId);
-  if (!mi) return [0, 0];
+  return mi ? rangeOf(mi, target, at, part) : [0, 0];
+}
+export function rangeOf(mi: Roll, target: Unit | null, at: Pos, part: HitSlot = 'body'): [number, number] {
+  if (mi.dmg <= 0) return [0, 0];
   let lo = Math.round(mi.dmg * RULES.dmgSpread[0]), hi = Math.round(mi.dmg * RULES.dmgSpread[1]);
   if (target) {
     const g = shieldCut(target, part, mi.cls, arcOf(target, target.facing, at));
     lo = Math.max(1, Math.round(lo * (1 - g))); hi = Math.max(1, Math.round(hi * (1 - g)));
   }
-  void s;
   return [lo, hi];
 }
 
 export function expectedDamage(s: BattleState, u: Unit, slot: WeaponSlot, modeId: string, target: Unit, at: Pos = u, reaction: Reaction | null = null): number {
   const mi = modeIn(u, slot, modeId);
-  if (!mi || mi.shots === 0) return 0;
-  const p = hitChance(s, u, slot, modeId, target, at, reaction) / 100;
+  return mi ? expectedOf(s, u, mi, target, at, reaction) : 0;
+}
+export function expectedOf(s: BattleState, u: Unit, mi: Roll, target: Unit, at: Pos = u, reaction: Reaction | null = null): number {
+  if (mi.shots === 0 || mi.dmg <= 0) return 0;
+  const p = chanceOf(s, u, mi, target, at, reaction) / 100;
   const arc = arcOf(target, target.facing, at);
   const w = hitWeights(mi.cls, arc, target);
   const total = w.body + w.armL + w.armR + w.legs + w.pack;
-  const cut = ((w.body + w.armL) / total) * shieldCut(target, 'body', mi.cls, arc);
+  const cut = mi.fixedPart ? shieldCut(target, mi.fixedPart, mi.cls, arc) : ((w.body + w.armL) / total) * shieldCut(target, 'body', mi.cls, arc);
   return mi.shots * p * mi.dmg * (1 - cut);
 }
 
@@ -323,10 +359,12 @@ export function preview(s: BattleState, u: Unit, slot: WeaponSlot, modeId: strin
 }
 
 /** DRV-3: where a walk can end. */
-export function walkRange(s: BattleState, u: Unit): Reach[] {
-  if (!u.alive || u.done || u.drive < RULES.drive.walk) return [];
-  return reachable(s, u, stats(s, u).move);
+export function walkRange(s: BattleState, u: Unit, bonus = 0): Reach[] {
+  if (!u.alive || u.done || u.drive < RULES.drive.walk || u.status.grabbedBy) return [];
+  return reachable(s, u, stats(s, u).move + bonus, u, hasTrait(u, 'hop'));
 }
+/** MAN-2. */
+export const dashRange = (s: BattleState, u: Unit): Reach[] => walkRange(s, u, maneuver('dash')?.moveBonus ?? 0);
 export const moveRange = walkRange;
 
 export const pivotCost = (): number => maneuver('pivot')?.dp ?? 1;
@@ -352,3 +390,95 @@ export function faceToward(s: BattleState, u: Unit, at: Pos = u): Unit['facing']
 /** The direction of each step's travel, for walks the board animates. */
 export const stepDir = (a: Pos, b: Pos): Facing => (b.x > a.x ? 'E' : b.x < a.x ? 'W' : b.y > a.y ? 'S' : 'N');
 export { DIR };
+
+// Maneuvers (spec 15 MAN).
+export interface ManeuverOption { id: string; def: ManeuverDef; slot: WeaponSlot | null }
+
+/** MAN-1: what a walker's parts, the universal list and (slice 5e) its pilot grant. Arm maneuvers carry their arm's slot. */
+export function maneuversOf(u: Unit): ManeuverOption[] {
+  const out: ManeuverOption[] = [];
+  const add = (id: string, slot: WeaponSlot | null) => { const def = maneuver(id); if (def && !out.some((o) => o.id === id && o.slot === slot)) out.push({ id, def, slot }); };
+  for (const id of body(u.build.body).maneuvers ?? []) add(id, null);
+  for (const [slot, armId, hp] of [['L', u.build.armL, u.hp.armL], ['R', u.build.armR, u.hp.armR]] as const) if (hp > 0) for (const id of arm(armId).maneuvers ?? []) add(id, slot);
+  if (u.hp.legs > 0) for (const id of legs(u.build.legs).maneuvers ?? []) add(id, null);
+  if (!u.status.packOut) for (const id of pack(u.build.pack).maneuvers ?? []) add(id, null);
+  for (const id of PARTS.universal) {
+    const def = maneuver(id);
+    if (def?.needs === 'emptyHand' || def?.needs === 'emptyHand+rubble') {
+      if (u.hp.armL > 0 && !u.build.wL) add(id, 'L');
+      if (u.hp.armR > 0 && !u.build.wR) add(id, 'R');
+    } else add(id, null);
+  }
+  return out;
+}
+export const hasTrait = (u: Unit, id: string): boolean => maneuversOf(u).some((m) => m.id === id && m.def.kind === 'trait');
+export const grants = (u: Unit, id: string, slot: WeaponSlot | null = null): ManeuverOption | null => maneuversOf(u).find((m) => m.id === id && (m.slot === slot || (slot === null && m.slot === null))) ?? null;
+
+const rubbleNear = (s: BattleState, p: Pos): boolean => FACINGS.some((f) => { const q = ahead(p, f); const t = tileAt(s, q.x, q.y); return !!t && t.t === 'rubble' && !t.obj; });
+
+/** MAN-11: where a tow puts the tower and the ally, or null. */
+export function towMove(s: BattleState, u: Unit, ally: Unit): { tower: Pos; ally: Pos } | null {
+  if (dist(u, ally) !== 1) return null;
+  const dir = dirTo(ally, u)!;
+  const dest = ahead(u, dir);
+  const here = tileAt(s, u.x, u.y)!, there = tileAt(s, dest.x, dest.y), from = tileAt(s, ally.x, ally.y)!;
+  if (!there || there.obj || unitAt(s, dest.x, dest.y) || there.h - here.h > 1 || here.h - from.h > 1) return null;
+  return { tower: dest, ally: { x: u.x, y: u.y } };
+}
+
+/** FLD-3: the wagon a walker could shunt at `p`, and the way it would roll. */
+export function shuntDir(s: BattleState, u: Unit, p: Pos): Unit['facing'] | null {
+  const here = tileAt(s, u.x, u.y), w = tileAt(s, p.x, p.y);
+  if (!here?.rail || !w?.rail || w.obj !== 'wagon' || dist(u, p) !== 1) return null;
+  const d = dirTo(u, p);
+  return d === 'N' || d === 'S' ? d : null;
+}
+
+/** Why `u` cannot use maneuver `id` (MAN-1..12); null if it can. `target` is a walker, `tile` a tile. */
+export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponSlot | null, target: Unit | null, tile: Pos | null): string | null {
+  const g = grants(u, id, slot);
+  if (!u.alive || !g) return 'not fitted';
+  const d = g.def;
+  if (d.kind === 'trait') return 'always on';
+  if (u.done) return 'stood down';
+  if (u.drive < d.dp) return `needs ${d.dp} drive`;
+  if (d.nerve && u.nerve < d.nerve) return `needs ${d.nerve} nerve`;
+  if (slot && u.fired.includes(slot)) return 'this arm has given its order this phase';
+  switch (id) {
+    case 'dash': return tile && dashRange(s, u).some((r) => r.x === tile.x && r.y === tile.y && (r.x !== u.x || r.y !== u.y)) ? null : u.status.grabbedBy ? 'held by a grab' : 'out of reach';
+    case 'brace': return u.status.braced ? 'already braced' : null;
+    case 'plant': return u.status.planted ? 'already planted' : null;
+    case 'overdrive': return u.usedThisPhase.includes('overdrive') ? 'once a phase' : u.hp.body <= (d.strain ?? 0) ? 'the body cannot take the strain' : null;
+    case 'breakFree': return u.status.grabbedBy ? null : 'not held';
+    case 'mark': {
+      if (!target || !target.alive || target.side === u.side) return 'mark an enemy';
+      if (target.status.markedBy === u.side) return 'already marked';
+      return dist(u, target) <= (pack(u.build.pack).sensorRange ?? 0) && hasLos(s, u, target) ? null : 'out of sensor range or sight';
+    }
+    case 'tow': return target && target.alive && target.side === u.side && target.id !== u.id ? (towMove(s, u, target) ? null : 'no room to tow') : 'tow an adjacent ally';
+    case 'shunt': return tile && shuntDir(s, u, tile) ? null : 'stand on the rails next to a wagon on the same line';
+    case 'patch': return 'use Patch';
+    default: break;
+  }
+  if (d.kind === 'attack') {
+    const r = maneuverRoll(id, slot)!;
+    if (!target || !target.alive || target.side === u.side) return 'not an enemy';
+    if (id === 'grab' && (u.grip || target.status.grabbedBy)) return u.grip ? 'already holding a walker' : 'already held';
+    if (d.needs === 'emptyHand+rubble' && !rubbleNear(s, u)) return 'needs rubble next to the walker';
+    const dd = dist(u, target);
+    if (dd < r.min || dd > r.max) return 'out of range';
+    return hasLos(s, u, target) ? null : 'no line of sight';
+  }
+  return null;
+}
+
+/** ARCH-3: the numbers an attack maneuver shows. */
+export function maneuverPreview(s: BattleState, u: Unit, id: string, slot: WeaponSlot | null, target: Unit): { dp: number; chance: number; dmg: [number, number]; arc: Arc; counter: Preview['counter'] } | null {
+  const r = maneuverRoll(id, slot);
+  if (!r || maneuverBlock(s, u, id, slot, target, null)) return null;
+  const rf = returnFire(s, target, u);
+  return {
+    dp: r.dp, chance: chanceOf(s, u, r, target), dmg: rangeOf(r, target, u, r.fixedPart ?? 'body'), arc: arcOf(target, target.facing, u),
+    counter: rf ? { slot: rf.slot, weapon: rf.weapon.def.name, mode: rf.mode.name, chance: hitChance(s, target, rf.slot, rf.mode.id, u, target, 'return'), shots: rf.shots, dmg: damageRange(s, target, rf.slot, rf.mode.id, u, target) } : null,
+  };
+}

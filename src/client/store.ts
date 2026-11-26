@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { chooseAction } from '../ai';
 import { applyResult, newCampaign, deployFrom, type Campaign } from '../engine/campaign';
 import { dirTo, dist } from '../engine/grid';
-import { canHitAny, faceToward, fireBlock, modeIn, modes, pivotCost, unitById, walkRange } from '../engine/query';
+import { canHitAny, dashRange, faceToward, fireBlock, maneuverBlock, modeIn, modes, pivotCost, shuntDir, unitById, walkRange } from '../engine/query';
 import { legalActions, newBattle, step, view } from '../engine/step';
 import type { Action, BattleState, Facing, GameEvent, HitSlot, WeaponSlot } from '../engine/types';
 import { audio } from './audio';
@@ -36,6 +36,8 @@ export interface ClientState {
   targetObj: { x: number; y: number } | null;
   /** A tile or ally mode waiting for its tile tap: Smoke, Cover lane, Guard. */
   aim: { slot: WeaponSlot; mode: string } | null;
+  /** A maneuver waiting for its tap: Dash (a tile) or Tow (an ally). */
+  maneuverAim: string | null;
   feed: { text: string; side: 'player' | 'hostile' | 'note' }[];
   banner: { text: string; sub: string; until: number } | null;
   settings: Settings;
@@ -56,6 +58,8 @@ export interface ClientState {
   fire: (slot: WeaponSlot, mode: string, part?: HitSlot) => void;
   fireObject: (slot: WeaponSlot, mode: string) => void;
   setAim: (aim: { slot: WeaponSlot; mode: string } | null) => void;
+  setManeuverAim: (id: string | null) => void;
+  maneuver: (id: string, extra?: { slot?: WeaponSlot; target?: string; x?: number; y?: number }) => boolean;
   face: (f: Facing) => void;
   finishBattle: () => void;
   retry: () => void;
@@ -80,6 +84,7 @@ export const useGame = create<ClientState>((set, get) => ({
   target: null,
   targetObj: null,
   aim: null,
+  maneuverAim: null,
   feed: [],
   banner: null,
   settings: readSettings(),
@@ -99,7 +104,7 @@ export const useGame = create<ClientState>((set, get) => ({
     if (!r.ok) return false;
     const env = r.env;
     if (env.screen === 'battle' && env.battle) {
-      set({ campaign: env.campaign, preBattle: env.campaign, live: env.battle.snapshot, shown: env.battle.snapshot, seed: env.battle.seed, actions: env.battle.actions, queue: [], presenting: false, screen: 'battle', selected: null, target: null, aim: null, feed: [{ text: `Resumed: round ${env.battle.snapshot.round}.`, side: 'note' }] });
+      set({ campaign: env.campaign, preBattle: env.campaign, live: env.battle.snapshot, shown: env.battle.snapshot, seed: env.battle.seed, actions: env.battle.actions, queue: [], presenting: false, screen: 'battle', selected: null, target: null, aim: null, maneuverAim: null, feed: [{ text: `Resumed: round ${env.battle.snapshot.round}.`, side: 'note' }] });
     } else set({ campaign: env.campaign, screen: env.screen, live: null, shown: null });
     return true;
   },
@@ -107,7 +112,7 @@ export const useGame = create<ClientState>((set, get) => ({
     const c = get().campaign;
     const seed = (Date.now() % 100000) + 1;
     const b = newBattle('marrow-yard', seed, deployFrom(c));
-    set({ preBattle: c, live: b, shown: b, seed, actions: [], queue: [], presenting: false, selected: null, target: null, targetObj: null, aim: null, feed: [{ text: 'Marrow Yard. Clear every Directorate walker.', side: 'note' }], screen: 'battle', banner: { text: 'YOUR PHASE', sub: 'ROUND 1', until: get().clock + 1.6 } });
+    set({ preBattle: c, live: b, shown: b, seed, actions: [], queue: [], presenting: false, selected: null, target: null, targetObj: null, aim: null, maneuverAim: null, feed: [{ text: 'Marrow Yard. Clear every Directorate walker.', side: 'note' }], screen: 'battle', banner: { text: 'YOUR PHASE', sub: 'ROUND 1', until: get().clock + 1.6 } });
     audio.play('turn-player');
     get().save();
   },
@@ -121,13 +126,21 @@ export const useGame = create<ClientState>((set, get) => ({
     return true;
   },
   select: (id) => {
-    set({ selected: id, target: null, targetObj: null, aim: null });
+    set({ selected: id, target: null, targetObj: null, aim: null, maneuverAim: null });
     const u = id ? get().live?.units.find((x) => x.id === id) : null;
     if (u && u.side === 'player') { audio.play('select'); void audio.voice(`${u.pilot}-select`).catch(() => {}); }
   },
   setHover: (p) => set({ hover: p }),
   setTarget: (id) => set({ target: id, targetObj: null, aim: null }),
-  setAim: (aim) => set({ aim, target: null, targetObj: null }),
+  setAim: (aim) => set({ aim, maneuverAim: null, target: null, targetObj: null }),
+  setManeuverAim: (id) => set({ maneuverAim: id, aim: null, target: null, targetObj: null }),
+  maneuver: (id, extra = {}) => {
+    const st = get();
+    if (!st.selected) return false;
+    const ok = st.dispatch({ type: 'maneuver', unit: st.selected, id, ...extra });
+    if (ok) set({ target: null, targetObj: null, maneuverAim: null });
+    return ok;
+  },
   tapTile: (x, y) => {
     const st = get();
     const live = st.live;
@@ -150,6 +163,19 @@ export const useGame = create<ClientState>((set, get) => ({
         return;
       }
     }
+    // 0b. A maneuver waiting for its tap: Dash to a tile, Tow an ally.
+    if (mine && st.maneuverAim) {
+      const id = st.maneuverAim;
+      if (here?.id === mine.id) { audio.play('cancel'); set({ maneuverAim: null }); return; }
+      if (id === 'dash' && !here && dashRange(live, mine).some((t) => t.x === x && t.y === y)) { audio.play('confirm'); st.dispatch({ type: 'maneuver', unit: mine.id, id, x, y, facing: faceToward(live, mine, { x, y }) }); set({ maneuverAim: null }); return; }
+      if (id === 'tow' && here && here.side === 'player') {
+        const why = maneuverBlock(live, mine, 'tow', null, here, null);
+        if (!why) { audio.play('confirm'); st.maneuver('tow', { target: here.id }); } else { audio.play('cancel'); st.note(why); }
+        return;
+      }
+      audio.play('cancel'); st.note(id === 'dash' ? 'Out of dash reach.' : 'Tap an adjacent ally.');
+      return;
+    }
     // 1. A walk for the selected walker, facing the threat (Face buttons change it).
     if (mine && !here && walkRange(live, mine).some((t) => t.x === x && t.y === y)) {
       audio.play('confirm');
@@ -162,12 +188,12 @@ export const useGame = create<ClientState>((set, get) => ({
     const tile = live.tiles[y * live.w + x];
     if (mine && !here && tile?.obj && ['wagon', 'container', 'shed', 'barrier'].includes(tile.obj)) {
       const d = dist(mine, { x, y });
-      const can = modes(mine).some((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && !mine.fired.includes(m.slot) && m.dp <= mine.drive && d >= m.min && d <= m.max);
+      const can = shuntDir(live, mine, { x, y }) !== null || modes(mine).some((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && !mine.fired.includes(m.slot) && m.dp <= mine.drive && d >= m.min && d <= m.max);
       if (can) { audio.play('ui-tick'); set({ targetObj: { x, y }, target: null }); return; }
     }
     // 4. Otherwise select whatever stands there, or clear.
     if (here) st.select(here.id);
-    else { if (st.selected) audio.play('cancel'); set({ selected: null, target: null, targetObj: null, aim: null }); }
+    else { if (st.selected) audio.play('cancel'); set({ selected: null, target: null, targetObj: null, aim: null, maneuverAim: null }); }
   },
   fire: (slot, mode, part) => {
     const st = get();

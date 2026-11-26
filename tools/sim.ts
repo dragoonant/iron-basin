@@ -16,7 +16,7 @@ for (let seed = 1; seed <= n; seed++) {
   lostP += res?.lost.player ?? 0; lostH += res?.lost.hostile ?? 0;
   for (const a of r.actions) {
     if (a.type === 'endPhase' || a.type === 'standDown') continue;
-    const k = a.type === 'fire' || a.type === 'fireAt' ? `${a.mode}` : a.type;
+    const k = a.type === 'fire' || a.type === 'fireAt' ? `${a.mode}` : a.type === 'maneuver' ? a.id : a.type;
     use[k] = (use[k] ?? 0) + 1; orders++;
   }
 }

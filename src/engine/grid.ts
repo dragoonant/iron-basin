@@ -39,14 +39,16 @@ export function hasLos(s: BattleState, a: Pos, b: Pos): boolean {
   return true;
 }
 
-/** MAP-5: the last tile before the target on the line holds a cover object; FLD-6: or the target stands in smoke. */
+/** MAP-5: the last tile before the target on the line holds a cover object; FLD-6: or the target stands in smoke;
+ * MAN-5: a planted walker counts as a cover object. */
 export function hasCover(s: BattleState, attacker: Pos, target: Pos): boolean {
   if (smokeAt(s, target.x, target.y)) return true;
   const pts = line(attacker, target);
   if (pts.length < 3) return false;
   const p = pts[pts.length - 2]!;
   const t = tileAt(s, p.x, p.y);
-  return !!(t?.obj && RULES.objects[t.obj].cover);
+  if (t?.obj && RULES.objects[t.obj].cover) return true;
+  return s.units.some((w) => w.alive && w.status.planted && w.x === p.x && w.y === p.y);
 }
 
 // Facing (FAC-1, FAC-2).
@@ -71,18 +73,18 @@ export function arcOf(at: Pos, f: Facing, from: Pos): Arc {
 }
 
 /** Cost to step onto a tile from a neighbour (MAP-2); Infinity if blocked. */
-export function stepCost(s: BattleState, from: Pos, to: Pos): number {
+export function stepCost(s: BattleState, from: Pos, to: Pos, hop = false): number {
   const a = tileAt(s, from.x, from.y), b = tileAt(s, to.x, to.y);
   if (!a || !b || b.obj) return Infinity;
   const climb = b.h - a.h;
   if (climb > 1 || climb < -1) return Infinity;
-  return RULES.terrainCost[b.t] + (climb > 0 ? RULES.climbCost : 0);
+  return RULES.terrainCost[b.t] + (climb > 0 && !hop ? RULES.climbCost : 0); // MAN-3: Hop climbs free
 }
 
 export interface Reach { x: number; y: number; cost: number; path: Pos[] }
 
 /** TRN-3: tiles a walker can end on within `budget`, with paths. Enemies block; allies can be passed but not ended on. */
-export function reachable(s: BattleState, u: Unit, budget: number, from: Pos = u): Reach[] {
+export function reachable(s: BattleState, u: Unit, budget: number, from: Pos = u, hop = false): Reach[] {
   const best = new Map<string, { cost: number; prev: string | null; x: number; y: number }>();
   const start = key(from.x, from.y);
   best.set(start, { cost: 0, prev: null, x: from.x, y: from.y });
@@ -93,7 +95,7 @@ export function reachable(s: BattleState, u: Unit, budget: number, from: Pos = u
     const cur = best.get(k)!;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const nx = cur.x + dx, ny = cur.y + dy;
-      const c = stepCost(s, cur, { x: nx, y: ny });
+      const c = stepCost(s, cur, { x: nx, y: ny }, hop);
       if (!isFinite(c)) continue;
       const other = unitAt(s, nx, ny);
       if (other && other.id !== u.id && other.side !== u.side) continue;

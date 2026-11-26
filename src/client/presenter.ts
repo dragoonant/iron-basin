@@ -2,8 +2,9 @@
 // camera close-ups, sound and voice. It is driven by `update(dt)` from the render loop and from window.__ib.advance,
 // because a hidden pane throttles requestAnimationFrame (KB recipe section 11).
 import * as THREE from 'three';
-import { weapon } from '../engine/data';
+import { maneuver, weapon, type WeaponDef } from '../engine/data';
 import { unitById } from '../engine/query';
+import { RULES } from '../engine/data';
 import type { BattleState, Facing, GameEvent, HitSlot, PartSlot, WeaponSlot } from '../engine/types';
 import { audio } from './audio';
 import { frameField, live as world, rig, shot, tileToWorld, type Rig } from './board/world';
@@ -119,7 +120,9 @@ function start(ev: GameEvent): Track {
       return { t: 0, dur: 0.3, tick: () => { a.facing = FACE_ANGLE[ev.facing]; }, done: () => mutateShown((c) => { c.units.find((x) => x.id === ev.unit)!.facing = ev.facing; }) };
     }
     case 'attack': {
-      const w = weapon(ev.weapon)!;
+      // An attack maneuver (`m:<id>`) plays as its own little weapon: melee for Kick, Ram jab and Grab, a thrown chunk for Throw.
+      const man = ev.weapon.startsWith('m:') ? maneuver(ev.weapon.slice(2)) : null;
+      const w: WeaponDef = man ? { name: man.name, class: man.class ?? 'melee', min: 1, max: 1, shots: 1, dmg: 0, acc: 0, weight: 0, modes: [], sfx: man.class === 'direct' ? 'container-crash' : 'ram-hit' } : weapon(ev.weapon)!;
       const attacker = anims.get(ev.unit)!, target = anims.get(ev.target)!;
       const au = shownUnit(ev.unit), tu = shownUnit(ev.target);
       if (au && tu) { attacker.facing = facingTo(au, tu); if (w.class === 'melee' || !ev.counter) closeup(au, tu); }
@@ -133,7 +136,7 @@ function start(ev: GameEvent): Track {
       const landed = new Set<number>();
       const lead = ev.reaction === 'return' ? 'Return fire: ' : ev.reaction === 'overwatch' ? 'Overwatch: ' : '';
       const arcNote = ev.arc === 'rear' ? ', from the rear' : ev.arc === 'front' ? '' : ', on the flank';
-      g.note(`${lead}${name(ev.unit)} fires ${w.name}, ${modeName(ev.weapon, ev.mode)}, at ${name(ev.target)} (${ev.chance}%${arcNote}).`, unitById(s, ev.unit)?.side ?? 'note');
+      g.note(man ? `${lead}${name(ev.unit)}: ${man.name} at ${name(ev.target)} (${ev.chance}%${arcNote}).` : `${lead}${name(ev.unit)} fires ${w.name}, ${modeName(ev.weapon, ev.mode)}, at ${name(ev.target)} (${ev.chance}%${arcNote}).`, unitById(s, ev.unit)?.side ?? 'note');
       return {
         t: 0, dur: pre + ev.shots.length * gap + flight + 0.55,
         tick: (t) => {
@@ -144,9 +147,9 @@ function start(ev: GameEvent): Track {
               fired.add(i);
               if (melee) { attacker.lunge = 1; if (i === 0) audio.play('servo'); }
               else {
-                const m = muzzlePos(ev.unit, ev.slot);
+                const m = ev.slot ? muzzlePos(ev.unit, ev.slot) : partPos(ev.unit, 'body');
                 addFx({ kind: 'flash', a: m, b: m, dur: 0.09, size: indirect ? 0.35 : 0.25 });
-                attacker.recoil[ev.slot] = 1;
+                if (ev.slot) attacker.recoil[ev.slot] = 1;
                 if (i === 0) audio.play(w.sfx ?? 'carbine');
                 const dest = sh.hit && sh.part ? partPos(sh.on ?? ev.target, sh.part) : partPos(ev.target, 'body').add(new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.3) * 0.6, (Math.random() - 0.5) * 1.2));
                 addFx({ kind: indirect ? 'shell' : 'tracer', a: m, b: dest, dur: flight + 0.04, color: missile ? '#ffd28a' : '#ffcf70' });
@@ -228,11 +231,72 @@ function start(ev: GameEvent): Track {
     }
     case 'status': {
       const pos = partPos(ev.unit, 'body');
-      const label = { pinned: 'PINNED', staggered: 'STAGGERED', down: 'KNOCKED DOWN', packOut: 'PACK OUT' }[ev.status];
+      const label = { pinned: 'PINNED', staggered: 'STAGGERED', down: 'KNOCKED DOWN', packOut: 'PACK OUT', braced: 'BRACED', planted: 'PLANTED', marked: 'MARKED', grabbed: 'GRABBED', released: 'LET GO' }[ev.status];
       addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.75, 0)), b: pos, dur: 1.3, text: label, color: '#e9e4d6' });
       if (ev.status === 'down') { const a = anims.get(ev.unit); if (a) a.hit = 1; audio.play('armor-hit', { gain: 0.6 }); }
       g.note(`${name(ev.unit)}: ${label.toLowerCase()}.`, 'note');
       return { t: 0, dur: 0.4, tick: () => {}, done: () => {} };
+    }
+    case 'overdrive': {
+      const pos = partPos(ev.unit, 'body');
+      audio.play('servo'); addFx({ kind: 'spark', a: pos, b: pos, dur: 0.6, size: 0.5 });
+      addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.7, 0)), b: pos, dur: 1.3, text: `OVERDRIVE +${ev.gain} DRIVE −${ev.strain}`, color: '#ffb27a' });
+      g.note(`${name(ev.unit)} overdrives the reactor (+${ev.gain} drive).`, unitById(s, ev.unit)?.side ?? 'note');
+      mutateShown((c) => { const u = c.units.find((x) => x.id === ev.unit)!; u.hp.body = Math.max(0, u.hp.body - ev.strain); });
+      return { t: 0, dur: 0.6, tick: () => {}, done: () => {} };
+    }
+    case 'tow': {
+      const a = anims.get(ev.unit)!, b = anims.get(ev.ally)!;
+      const a0 = { x: a.x, y: a.y }, b0 = { x: b.x, y: b.y };
+      audio.play('servo');
+      g.note(`${name(ev.unit)} tows ${name(ev.ally)} clear.`, 'player');
+      return {
+        t: 0, dur: 0.6,
+        tick: (t) => { const k = Math.min(1, t / 0.55); a.x = a0.x + (ev.x - a0.x) * k; a.y = a0.y + (ev.y - a0.y) * k; b.x = b0.x + (ev.ax - b0.x) * k; b.y = b0.y + (ev.ay - b0.y) * k; a.level = levelAt(s, Math.round(a.x), Math.round(a.y)); b.level = levelAt(s, Math.round(b.x), Math.round(b.y)); },
+        done: () => mutateShown((c) => { const u = c.units.find((x) => x.id === ev.unit)!, v = c.units.find((x) => x.id === ev.ally)!; u.x = ev.x; u.y = ev.y; v.x = ev.ax; v.y = ev.ay; }),
+      };
+    }
+    case 'wagon': {
+      audio.play('container-crash', { gain: 0.6 });
+      const lead = ev.cars[0]!;
+      const n = Math.max(1, Math.abs(lead.to.y - lead.from.y) + Math.abs(lead.to.x - lead.from.x));
+      g.note(`${name(ev.unit)} sends ${ev.cars.length > 1 ? `${ev.cars.length} coupled wagons` : 'a wagon'} down the line${ev.hit ? ` into ${name(ev.hit)}` : ''}.`, unitById(s, ev.unit)?.side ?? 'note');
+      // Lift the wagons off their tiles at once; they reappear where they stop, with dust along the way.
+      mutateShown((c) => { for (const car of ev.cars) c.tiles[car.from.y * c.w + car.from.x]!.obj = null; });
+      let k = 0;
+      return {
+        t: 0, dur: 0.12 * n + 0.3,
+        tick: (t) => {
+          const stepN = Math.min(n, Math.floor(t / 0.12));
+          for (; k <= stepN; k++) for (const car of ev.cars) {
+            const x = car.from.x + Math.sign(car.to.x - car.from.x) * k, y = car.from.y + Math.sign(car.to.y - car.from.y) * k;
+            const p = tileToWorld(x, y, levelAt(s, x, y)); p.y += 0.4;
+            addFx({ kind: 'dust', a: p, b: p, dur: 0.9, size: 0.6, color: '#7a6a58' });
+          }
+        },
+        done: () => {
+          const p = tileToWorld(lead.to.x, lead.to.y, levelAt(s, lead.to.x, lead.to.y)); p.y += 0.6;
+          addFx({ kind: ev.hit || ev.obj ? 'boom' : 'dust', a: p, b: p, dur: 0.6, size: 0.6, color: '#7a7064' });
+          if (ev.hit) { const pos = partPos(ev.hit, 'body'); addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.6, 0)), b: pos, dur: 1.3, text: `WAGON −${RULES.wagon.dmg}`, color: '#ffd27a' }); audio.play('ram-hit'); mutateShown((c) => { const u = c.units.find((x) => x.id === ev.hit)!; u.hp.body = Math.max(0, u.hp.body - RULES.wagon.dmg); }); }
+          mutateShown((c) => { for (const car of ev.cars) { const t = c.tiles[car.to.y * c.w + car.to.x]!; if (car.broken) { t.obj = null; t.t = 'rubble'; } else { t.obj = 'wagon'; t.objHp = car.hp; } } });
+        },
+      };
+    }
+    case 'toppled': {
+      audio.play('container-crash');
+      const p = tileToWorld(ev.x, ev.y, levelAt(s, ev.x, ev.y)); p.y += 0.8;
+      addFx({ kind: 'boom', a: p, b: p, dur: 0.8, size: 0.9 });
+      g.note('A container stack topples.', 'note');
+      for (const h of ev.hits) {
+        const q = tileToWorld(h.x, h.y, levelAt(s, h.x, h.y)); q.y += 0.5;
+        addFx({ kind: 'dust', a: q, b: q, dur: 1.6, size: 0.9, color: '#7a7064' });
+        if (h.unit) { const pos = partPos(h.unit, 'body'); addFx({ kind: 'float', a: pos.clone().add(new THREE.Vector3(0, 0.6, 0)), b: pos, dur: 1.3, text: `CRUSHED −${h.dmg}`, color: '#ffd27a' }); }
+      }
+      mutateShown((c) => {
+        const t = c.tiles[ev.y * c.w + ev.x]!; t.obj = null; t.t = 'rubble'; t.stack = false;
+        for (const h of ev.hits) { const q = c.tiles[h.y * c.w + h.x]!; if (h.unit) { const u = c.units.find((x) => x.id === h.unit)!; u.hp.body = Math.max(0, u.hp.body - h.dmg); } else if (q.obj) { q.objHp = Math.max(0, q.objHp - h.dmg); if (q.objHp === 0) { q.obj = null; q.t = 'rubble'; } } else q.t = 'rubble'; }
+      });
+      return { t: 0, dur: 1, tick: () => {}, done: () => {} };
     }
     case 'smoke': {
       const au = shownUnit(ev.unit);

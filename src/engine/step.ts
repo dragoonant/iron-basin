@@ -1,10 +1,12 @@
 // The rules engine (spec 10 and spec 15). Pure: step() works on a copy and never throws (ARCH-1).
 import { body, MISSIONS, pack, pilot, RULES, weapon, type MissionDef } from './data';
 import { ahead, arcOf, dirTo, dist, FACINGS, inBounds, tileAt, unitAt, type Pos } from './grid';
+import { maneuver } from './data';
 import { next, seedRng, hashText } from './rng';
 import {
-  callable, cheapestMode, driveAtStart, fireBlock, guardFor, hitChance, hitWeights, indirectSight, living, maxHp, modeIn, modes,
-  overwatchers, patchCost, pivotCost, returnFire, shieldCut, unitById, walkRange, weaponIn, type FireClass, type ModeInfo,
+  callable, chanceOf, cheapestMode, dashRange, driveAtStart, fireBlock, guardFor, hasTrait, hitWeights, indirectSight, living, maneuverBlock,
+  maneuverRoll, maneuversOf, maxHp, modeIn, modes, overwatchers, patchCost, pivotCost, returnFire, shieldCut, shuntDir, towMove, unitById,
+  walkRange, weaponIn, type FireClass, type Roll,
 } from './query';
 import type {
   Action, BattleState, Build, Facing, GameEvent, HitSlot, PaintSlot, PartSlot, Paint, Reaction, Result, ShotEvent, Side, StepResult, Tile, Unit, WeaponSlot,
@@ -19,10 +21,14 @@ export function parseMap(m: MissionDef): Tile[] {
     const obj = l[2] ?? null;
     tiles.push({ t: l[0], h: l[1], obj, objHp: obj ? RULES.objects[obj].hp : 0 });
   }
+  // FLD-7: rails and stacks as tile flags.
+  const w = m.map[0]!.length;
+  for (const r of m.rails ?? []) for (let y = 0; y < m.map.length; y++) tiles[y * w + r.x]!.rail = r.axis;
+  for (const [x, y] of m.stacks ?? []) tiles[y * w + x]!.stack = true;
   return tiles;
 }
 
-const noStatus = () => ({ pinned: false, suppressed: false, staggered: false, mired: false, down: false, packOut: false });
+const noStatus = () => ({ pinned: false, suppressed: false, staggered: false, mired: false, down: false, packOut: false, braced: false, planted: false, markedBy: null, grabbedBy: null });
 
 /** A walker as it would stand on the field (also used by the hangar's summary). */
 export function makeUnit(d: Deploy): Unit {
@@ -33,7 +39,7 @@ export function makeUnit(d: Deploy): Unit {
     paint: { body: base, armL: base, armR: base, legs: base, pack: base, ...(d.paint ?? {}) },
     hp: { body: 0, armL: 0, armR: 0, legs: 0 }, ammo: null, charges: 0,
     drive: 0, reserve: RULES.drive.startReserve, done: false, fired: [], walked: false, lastWalk: null, holdFire: false,
-    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], alive: true,
+    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], grip: null, usedThisPhase: [], alive: true,
   };
   for (const p of ['body', 'armL', 'armR', 'legs'] as const) u.hp[p] = Math.min(maxHp(u, p), d.hp?.[p] ?? maxHp(u, p));
   const pk = pack(u.build.pack);
@@ -98,9 +104,60 @@ function reap(s: BattleState, by: string, ev: GameEvent[]): void {
 
 /** FLD-2. */
 function knockDown(t: Unit, ev: GameEvent[]): void {
-  if (!t.alive || t.status.down) return;
+  if (!t.alive || t.status.down || t.status.braced) return; // MAN-5
   t.status.down = true;
   ev.push({ type: 'status', unit: t.id, status: 'down' });
+}
+
+/** MAN-6: let go. */
+function release(s: BattleState, g: Unit, ev: GameEvent[]): void {
+  if (!g.grip) return;
+  const t = unitById(s, g.grip.target);
+  if (t && t.status.grabbedBy === g.id) t.status.grabbedBy = null;
+  g.grip = null;
+  ev.push({ type: 'status', unit: t?.id ?? g.id, status: 'released' });
+}
+function releaseAll(s: BattleState, u: Unit, ev: GameEvent[]): void {
+  if (u.grip) release(s, u, ev);
+  if (u.status.grabbedBy) { const g = unitById(s, u.status.grabbedBy); if (g?.grip?.target === u.id) release(s, g, ev); else u.status.grabbedBy = null; }
+}
+/** MAN-6: a grab ends when the grabber loses the arm, falls, dies, or the two are no longer adjacent. */
+function sweepGrips(s: BattleState, ev: GameEvent[]): void {
+  for (const g of s.units) {
+    if (!g.grip) continue;
+    const t = unitById(s, g.grip.target);
+    const armHp = g.grip.arm === 'L' ? g.hp.armL : g.hp.armR;
+    if (!g.alive || armHp <= 0 || g.status.down || !t || !t.alive || dist(g, t) !== 1 || t.status.grabbedBy !== g.id) release(s, g, ev);
+  }
+  for (const t of s.units) if (t.status.grabbedBy && unitById(s, t.status.grabbedBy)?.grip?.target !== t.id) t.status.grabbedBy = null;
+}
+
+/** FLD-5: a stack at toppleAt HP or less (above 0) falls away from `from`. Topples do not chain (FLD-5 ruling). */
+function maybeTopple(s: BattleState, x: number, y: number, from: Pos, ev: GameEvent[]): void {
+  const t = tileAt(s, x, y);
+  if (!t?.stack || t.obj !== 'container' || t.objHp <= 0 || t.objHp > RULES.stack.toppleAt) return;
+  const dx = x - from.x, dy = y - from.y;
+  if (dx === 0 && dy === 0) return;
+  const dir: Facing = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'E' : 'W') : dy > 0 ? 'S' : 'N';
+  t.obj = null; t.objHp = 0; t.t = 'rubble'; t.stack = false;
+  const hits: { x: number; y: number; unit: string | null; dmg: number }[] = [];
+  const after: GameEvent[] = [];
+  for (let n = 1; n <= RULES.stack.reach; n++) {
+    const p = ahead({ x, y }, dir, n);
+    const q = tileAt(s, p.x, p.y);
+    if (!q) continue;
+    const w = unitAt(s, p.x, p.y);
+    if (w) { const r = applyDamage(w, 'body', RULES.stack.dmg, 0); hits.push({ ...p, unit: w.id, dmg: r.dmg }); knockDown(w, after); }
+    else if (q.obj) { if (RULES.objects[q.obj].breakable) { q.objHp = Math.max(0, q.objHp - RULES.stack.dmg); if (q.objHp === 0) { q.obj = null; q.t = 'rubble'; q.stack = false; } } hits.push({ ...p, unit: null, dmg: RULES.stack.dmg }); }
+    else { q.t = 'rubble'; hits.push({ ...p, unit: null, dmg: 0 }); }
+  }
+  ev.push({ type: 'toppled', x, y, dir, hits }, ...after);
+}
+
+/** Would a push of `t` toward `dir` move it (rather than collide)? */
+function pushMoves(s: BattleState, t: Unit, dir: Facing): boolean {
+  const d = ahead(t, dir), q = tileAt(s, d.x, d.y), here = tileAt(s, t.x, t.y)!;
+  return !!q && !q.obj && !unitAt(s, d.x, d.y) && q.h <= here.h;
 }
 
 /** FLD-1: push `t` one tile straight away from `from`. */
@@ -108,6 +165,7 @@ function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): vo
   if (!t.alive) return;
   const dir = dirTo(from, t);
   if (!dir) return;
+  if (t.status.braced) { ev.push({ type: 'status', unit: t.id, status: 'braced' }); return; } // MAN-5
   const dest = ahead(t, dir);
   const here = tileAt(s, t.x, t.y)!, there = tileAt(s, dest.x, dest.y);
   const other = there ? unitAt(s, dest.x, dest.y) : null;
@@ -123,13 +181,16 @@ function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): vo
       obj = { x: dest.x, y: dest.y, dmg: c, broken };
     }
     ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'collide', dmg: r.dmg, other: other?.id ?? null, obj });
+    if (obj && !obj.broken) maybeTopple(s, dest.x, dest.y, t, ev);
     return;
   }
+  releaseAll(s, t, ev); // MAN-6: a pushed walker breaks a grab
   t.x = dest.x; t.y = dest.y;
   if (there.h < here.h) {
-    const r = applyDamage(t, 'legs', RULES.push.fallLegs, 0);
+    const hop = hasTrait(t, 'hop'); // MAN-3
+    const r = hop ? { dmg: 0 } : applyDamage(t, 'legs', RULES.push.fallLegs, 0);
     ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'fell', dmg: r.dmg, other: null, obj: null });
-    knockDown(t, ev);
+    if (!hop) knockDown(t, ev);
   } else if (there.t === 'water') {
     t.status.mired = true;
     ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'water', dmg: 0, other: null, obj: null });
@@ -154,9 +215,9 @@ function packHit(s: BattleState, t: Unit, ev: GameEvent[]): void {
 interface FireOpts { reaction: Reaction | null; part?: HitSlot }
 
 /** HIT-1..4, MOD-2..7, FAC-3..5, RCT-4: one fire order's rolls and effects. Returns whether the legs of `t` were hit. */
-function resolveFire(s: BattleState, a: Unit, mi: ModeInfo, t: Unit, opts: FireOpts, ev: GameEvent[]): { legsHit: boolean } {
+function resolveFire(s: BattleState, a: Unit, mi: Roll, t: Unit, opts: FireOpts, ev: GameEvent[]): { legsHit: boolean } {
   const cls: FireClass = mi.cls;
-  const chance = hitChance(s, a, mi.slot, mi.mode.id, t, a, opts.reaction);
+  const chance = chanceOf(s, a, mi, t, a, opts.reaction);
   const arc = arcOf(t, t.facing, a);
   const shots: ShotEvent[] = [];
   const after: GameEvent[] = [];
@@ -166,6 +227,7 @@ function resolveFire(s: BattleState, a: Unit, mi: ModeInfo, t: Unit, opts: FireO
     if (!t.alive || t.hp.body <= 0) break;
     const hit = next(s.rng) * 100 < chance;
     if (!hit) { shots.push({ hit: false, part: null, dmg: 0, partLost: false }); continue; }
+    if (mi.dmg <= 0) { shots.push({ hit: true, part: null, dmg: 0, partLost: false }); hitOn.add(t.id); continue; } // Grab
     const raw = mi.dmg * (RULES.dmgSpread[0] + next(s.rng) * (RULES.dmgSpread[1] - RULES.dmgSpread[0]));
     const g = guardFor(s, a, t, cls);
     if (g) { // RCT-4: the guard's shield arm takes it.
@@ -174,7 +236,7 @@ function resolveFire(s: BattleState, a: Unit, mi: ModeInfo, t: Unit, opts: FireO
       hitOn.add(g.id);
       continue;
     }
-    let part: HitSlot = opts.part ?? drawPart(s, hitWeights(cls, arc, t));
+    let part: HitSlot = opts.part ?? mi.fixedPart ?? drawPart(s, hitWeights(cls, arc, t));
     if (part === 'pack' && (pack(t.build.pack).kind === 'none' || t.status.packOut)) part = 'body';
     if (part === 'pack') {
       const r = applyDamage(t, 'body', raw, 0);
@@ -186,16 +248,16 @@ function resolveFire(s: BattleState, a: Unit, mi: ModeInfo, t: Unit, opts: FireO
       if (r.part === 'legs') legsHit = true;
     }
     hitOn.add(t.id);
-    if (cls === 'indirect' && mi.weapon.def.splash) { // MOD-9: only High explosive rolls; Smoke has no shots
+    if (mi.splash) { // MOD-9: only High explosive rolls; Smoke has no shots
       for (const o of s.units) {
         if (!o.alive || o.id === t.id || dist(o, t) !== 1) continue;
-        const sr = applyDamage(o, 'body', mi.weapon.def.splash, 0);
+        const sr = applyDamage(o, 'body', mi.splash, 0);
         after.push({ type: 'splash', unit: a.id, target: o.id, dmg: sr.dmg, partLost: false });
       }
     }
   }
   if (mi.slot === 'P' && a.ammo !== null) a.ammo -= 1; // MOD-3
-  ev.push({ type: 'attack', unit: a.id, slot: mi.slot, weapon: mi.weapon.id, mode: mi.mode.id, target: t.id, counter: opts.reaction !== null, reaction: opts.reaction, arc, chance, shots });
+  ev.push({ type: 'attack', unit: a.id, slot: mi.slot, weapon: mi.weaponId, mode: mi.mode.id, target: t.id, counter: opts.reaction !== null, reaction: opts.reaction, arc, chance, shots });
   ev.push(...after);
   reap(s, a.id, ev);
   // MOD-6, MOD-7: effects land on each walker that took a hit.
@@ -207,6 +269,10 @@ function resolveFire(s: BattleState, a: Unit, mi: ModeInfo, t: Unit, opts: FireO
     if (fx === 'stagger' && !v.status.staggered) { v.status.staggered = true; ev.push({ type: 'status', unit: v.id, status: 'staggered' }); }
     if (fx === 'knockdown') knockDown(v, ev);
     if (fx === 'push') push(s, a, v, a, ev);
+    if (fx === 'grab' && v.id === t.id && (mi.slot === 'L' || mi.slot === 'R')) { // MAN-6
+      v.status.grabbedBy = a.id; a.grip = { target: v.id, arm: mi.slot };
+      ev.push({ type: 'status', unit: v.id, status: 'grabbed' });
+    }
   }
   reap(s, a.id, ev);
   return { legsHit };
@@ -245,8 +311,11 @@ function startPhase(s: BattleState, side: Side, ev: GameEvent[]): void {
   const before = s.smoke.length;
   s.smoke = s.smoke.filter((m) => m.side !== side);
   if (s.smoke.length !== before) ev.push({ type: 'smokeClear', side });
+  for (const u of s.units) if (u.status.markedBy === side) u.status.markedBy = null; // MAN-9
+  for (const u of s.units) if (u.side === side && u.grip) release(s, u, ev); // MAN-6
   for (const u of s.units) {
     if (u.side !== side || !u.alive) continue;
+    u.status.braced = false; u.status.planted = false; u.usedThisPhase = []; // MAN-5, MAN-8
     u.reserve = 0;
     u.drive = driveAtStart(u);
     u.status.suppressed = u.status.pinned;
@@ -290,10 +359,12 @@ const isSlot = (x: unknown): x is WeaponSlot => x === 'L' || x === 'R' || x === 
 const PARTS: PartSlot[] = ['body', 'armL', 'armR', 'legs'];
 
 /** DRV-3, RCT-3: walk a path step by step; enemy overwatch can fire on each tile and stop the walk. */
-function walk(s: BattleState, u: Unit, path: Pos[], facing: Facing, ev: GameEvent[]): void {
+function walk(s: BattleState, u: Unit, path: Pos[], facing: Facing, ev: GameEvent[], dp = RULES.drive.walk, nerve = 0): void {
   const from = { x: u.x, y: u.y };
-  const lw = { from, facing: u.facing, dp: RULES.drive.walk, dir: null as Facing | null, steps: 0, reacted: false, wasWalked: u.walked };
-  u.drive -= RULES.drive.walk; u.walked = true;
+  const lw = { from, facing: u.facing, dp, nerve, dir: null as Facing | null, steps: 0, reacted: false, wasWalked: u.walked };
+  u.drive -= dp; u.nerve -= nerve; u.walked = true;
+  u.status.braced = false; u.status.planted = false; // MAN-5: walking ends both
+  if (u.grip) release(s, u, ev); // MAN-6: the grabber walks
   let seg: Pos[] = [{ ...from }];
   let stopped = false;
   const dirs: Facing[] = [];
@@ -342,7 +413,7 @@ function stepInner(state: BattleState, action: Action): StepResult {
       const lw = u?.lastWalk;
       if (!u || !lw || lw.reacted) return reject(state, 'nothing to undo');
       if (unitAt(s, lw.from.x, lw.from.y)) return reject(state, 'start tile taken');
-      u.x = lw.from.x; u.y = lw.from.y; u.facing = lw.facing; u.drive += lw.dp; u.walked = lw.wasWalked; u.lastWalk = null;
+      u.x = lw.from.x; u.y = lw.from.y; u.facing = lw.facing; u.drive += lw.dp; u.nerve += lw.nerve; u.walked = lw.wasWalked; u.lastWalk = null;
       if (u.done && u.reserve === 0) u.done = false;
       ev.push({ type: 'undo', unit: u.id, x: u.x, y: u.y, facing: u.facing });
       break;
@@ -406,9 +477,10 @@ function stepInner(state: BattleState, action: Action): StepResult {
         const dmg = Math.round(mi.dmg * mi.shots);
         tile.objHp = Math.max(0, tile.objHp - dmg);
         const broken = tile.objHp === 0;
-        if (broken) { tile.obj = null; tile.t = 'rubble'; }
+        if (broken) { tile.obj = null; tile.t = 'rubble'; tile.stack = false; }
         if (mi.slot === 'P' && u.ammo !== null) u.ammo -= 1;
         ev.push({ type: 'objectHit', unit: u.id, slot: mi.slot, weapon: mi.weapon.id, mode: mi.mode.id, x: p.x, y: p.y, dmg, broken });
+        if (!broken) maybeTopple(s, p.x, p.y, u, ev);
       }
       u.drive -= mi.dp; u.fired.push(mi.slot); u.lastWalk = null;
       settle(u);
@@ -427,6 +499,42 @@ function stepInner(state: BattleState, action: Action): StepResult {
       t.hp[action.part] += amount;
       u.charges -= 1; u.drive -= patchCost(); u.lastWalk = null;
       ev.push({ type: 'repaired', unit: u.id, target: t.id, part: action.part, amount });
+      settle(u);
+      break;
+    }
+    case 'maneuver': {
+      const u = own(s, action.unit);
+      if (!u || typeof action.id !== 'string') return reject(state, 'cannot maneuver');
+      const slot = isSlot(action.slot) ? action.slot : null;
+      const t = typeof action.target === 'string' ? unitById(s, action.target) : null;
+      const tile = typeof action.x === 'number' && typeof action.y === 'number' ? { x: action.x, y: action.y } : null;
+      const why = maneuverBlock(s, u, action.id, slot, t, tile);
+      if (why) return reject(state, why);
+      const d = maneuver(action.id)!;
+      const r = maneuverRoll(action.id, slot);
+      if (action.id === 'dash') {
+        if (!isFacing(action.facing)) return reject(state, 'bad facing');
+        const path = dashRange(s, u).find((q) => q.x === tile!.x && q.y === tile!.y)!.path;
+        walk(s, u, path, action.facing, ev, d.dp, d.nerve ?? 0);
+        settle(u);
+        break;
+      }
+      u.drive -= d.dp; u.nerve -= d.nerve ?? 0; u.lastWalk = null;
+      if (slot) u.fired.push(slot);
+      if (r) { resolveFire(s, u, r, t!, { reaction: null }, ev); answer(s, u, t!, ev); }
+      else if (action.id === 'brace') { u.status.braced = true; ev.push({ type: 'status', unit: u.id, status: 'braced' }); }
+      else if (action.id === 'plant') { u.status.planted = true; ev.push({ type: 'status', unit: u.id, status: 'planted' }); }
+      else if (action.id === 'overdrive') {
+        u.drive += d.gain ?? 0; u.usedThisPhase.push('overdrive');
+        const sr = applyDamage(u, 'body', d.strain ?? 0, 0);
+        ev.push({ type: 'overdrive', unit: u.id, gain: d.gain ?? 0, strain: sr.dmg });
+      } else if (action.id === 'breakFree') releaseAll(s, u, ev);
+      else if (action.id === 'mark') { t!.status.markedBy = u.side; ev.push({ type: 'status', unit: t!.id, status: 'marked' }); }
+      else if (action.id === 'tow') {
+        const mv = towMove(s, u, t!)!;
+        u.x = mv.tower.x; u.y = mv.tower.y; t!.x = mv.ally.x; t!.y = mv.ally.y;
+        ev.push({ type: 'tow', unit: u.id, ally: t!.id, x: u.x, y: u.y, ax: t!.x, ay: t!.y });
+      } else if (action.id === 'shunt') shunt(s, u, tile!, shuntDir(s, u, tile!)!, ev);
       settle(u);
       break;
     }
@@ -457,9 +565,56 @@ function stepInner(state: BattleState, action: Action): StepResult {
     default:
       return reject(state, 'unknown action');
   }
+  sweepGrips(s, ev);
   s.turnCount += 1;
   checkEnd(s, ev);
   return { state: s, events: ev };
+}
+
+/** FLD-3, FLD-4: a shunted wagon rolls along the rails, pushing the wagons coupled ahead of it (the rake). */
+function shunt(s: BattleState, u: Unit, at: Pos, dir: Facing, ev: GameEvent[]): void {
+  const rake: Pos[] = [{ ...at }];
+  for (;;) { const n = ahead(rake[rake.length - 1]!, dir), t = tileAt(s, n.x, n.y); if (t?.rail && t.obj === 'wagon') rake.push(n); else break; }
+  const start = rake.map((p) => ({ ...p }));
+  const hps = rake.map((p) => tileAt(s, p.x, p.y)!.objHp);
+  let hit: string | null = null, objHit: Pos | null = null;
+  const after: GameEvent[] = [];
+  for (let n = 0; n < RULES.wagon.roll; n++) {
+    const lead = rake[rake.length - 1]!;
+    const nx = ahead(lead, dir), nt = tileAt(s, nx.x, nx.y);
+    if (!nt || !nt.rail) { hps[hps.length - 1]! -= RULES.wagon.collide; break; } // the end of the rails
+    if (nt.obj) {
+      hps[hps.length - 1]! -= RULES.wagon.collide; objHit = nx;
+      if (RULES.objects[nt.obj].breakable) {
+        nt.objHp = Math.max(0, nt.objHp - RULES.wagon.collide);
+        if (nt.objHp === 0) { nt.obj = null; nt.t = 'rubble'; nt.stack = false; } else maybeTopple(s, nx.x, nx.y, lead, after);
+      }
+      break;
+    }
+    const w = unitAt(s, nx.x, nx.y);
+    if (w) {
+      hit = w.id;
+      applyDamage(w, 'body', RULES.wagon.dmg, 0);
+      // Off the track sideways: towards lower x first, else higher x, else a collision (FLD-3 ruling).
+      const side: Facing = pushMoves(s, w, 'W') ? 'W' : pushMoves(s, w, 'E') ? 'E' : 'W';
+      push(s, u, w, ahead(w, side === 'W' ? 'E' : 'W'), after);
+      knockDown(w, after);
+      break;
+    }
+    for (let k = rake.length - 1; k >= 0; k--) {
+      const from = tileAt(s, rake[k]!.x, rake[k]!.y)!, to = ahead(rake[k]!, dir), tt = tileAt(s, to.x, to.y)!;
+      tt.obj = 'wagon'; tt.objHp = from.objHp; from.obj = null; from.objHp = 0;
+      rake[k] = to;
+    }
+  }
+  const cars = rake.map((p, k) => {
+    const t = tileAt(s, p.x, p.y)!;
+    const broken = hps[k]! <= 0;
+    if (broken) { t.obj = null; t.objHp = 0; t.t = 'rubble'; } else t.objHp = hps[k]!;
+    return { from: start[k]!, to: { ...p }, hp: Math.max(0, hps[k]!), broken };
+  }).reverse();
+  ev.push({ type: 'wagon', unit: u.id, cars, hit, obj: objHit }, ...after);
+  reap(s, u.id, ev);
 }
 
 /** ARCH-2, DRV-9: never empty while the battle runs. Hold fire is a switch, not an order, and is not listed. */
@@ -495,6 +650,14 @@ export function legalActions(s: BattleState): Action[] {
     if (pack(u.build.pack).kind === 'repair' && !u.status.packOut && u.charges > 0 && u.drive >= patchCost()) {
       for (const t of living(s, u.side)) if (dist(u, t) <= 1) for (const p of PARTS)
         if (t.hp[p] > 0 && t.hp[p] < maxHp(t, p)) out.push({ type: 'patch', unit: u.id, target: t.id, part: p });
+    }
+    for (const m of maneuversOf(u)) {
+      if (m.def.kind === 'trait' || m.id === 'patch' || m.id === 'pivot') continue;
+      const base = { type: 'maneuver' as const, unit: u.id, id: m.id, ...(m.slot ? { slot: m.slot } : {}) };
+      if (m.id === 'dash') { if (maneuverBlock(s, u, 'dash', null, null, null) === 'out of reach') for (const r of dashRange(s, u)) if (r.x !== u.x || r.y !== u.y) for (const f of FACINGS) out.push({ ...base, x: r.x, y: r.y, facing: f }); }
+      else if (m.def.kind === 'attack' || m.id === 'mark' || m.id === 'tow') { for (const t of s.units) if (!maneuverBlock(s, u, m.id, m.slot, t, null)) out.push({ ...base, target: t.id }); }
+      else if (m.id === 'shunt') { for (const f of FACINGS) { const p = ahead(u, f); if (!maneuverBlock(s, u, 'shunt', null, null, p)) out.push({ ...base, x: p.x, y: p.y }); } }
+      else if (!maneuverBlock(s, u, m.id, m.slot, null, null)) out.push(base);
     }
     out.push({ type: 'standDown', unit: u.id });
   }

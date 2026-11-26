@@ -1,11 +1,11 @@
 # IRON BASIN — STATUS (rewrite, never append)
 
-**2026-11-24: level 1 is playable end to end.** Title → voiced briefing → Marrow Yard battle → debrief with salvage → hangar → contract 2 stub. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR (KB rule 28; still the v1 build, republish after M5). Home: `dragoonant/iron-basin` (PLAN D2).
+**2026-11-24: level 1 is playable end to end.** Title → voiced briefing → Marrow Yard battle → debrief with salvage → hangar → contract 2 stub. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR (KB rule 28; republished 2026-11-26 with combat v2 through slice 5c). Home: `dragoonant/iron-basin` (PLAN D2).
 
 ## What is in
 | Area | State | Where |
 |---|---|---|
-| Rules | spec 10: 35 ids; spec 15 (combat v2): 63 ids, 41 live and tested, 22 pending | `docs/spec/10-rules.md`, `docs/spec/15-combat-v2.md`, `tests/rules.test.ts`, `tests/v2.test.ts`, `tests/coverage.test.ts` |
+| Rules | spec 10: 35 ids; spec 15 (combat v2): 63 ids, 56 live and tested, 7 pending (nerve) | `docs/spec/10-rules.md`, `docs/spec/15-combat-v2.md`, `tests/rules.test.ts`, `tests/v2.test.ts`, `tests/coverage.test.ts` |
 | Engine | pure `step`, `legalActions`, `query.*`, `view`, sfc32 replay, campaign and hangar ops | `src/engine/` |
 | AI | pure function of `view(state, side)`; normal (one-pass drive planner) and random | `src/ai/` |
 | Balance | pass 1 recorded; AI vs AI player win 30-39%, normal beats random 96% | `docs/spec/80-sim.md` |
@@ -19,10 +19,10 @@
 | Audio | 5 music tracks, 28 sounds, 25 voice lines (ElevenLabs); not verified by ear | `public/audio/`, `docs/spec/60-audio.md`, `sounds.html` |
 
 ## Gates (all green 2026-11-26)
-`npm run typecheck` | `npm test` (78, plus 22 pending v2 ids) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (11: smoke, full contract, fire panel, drive and facing, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact`
+`npm run typecheck` | `npm test` (93, plus 7 pending v2 ids) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (12: smoke, full contract, fire panel, drive and facing, wagon shunt, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact`
 
 ## Known gaps, next
-- **Combat v2, slice 5b done (2026-11-26): the new turn is playable.** Drive points (walk 1, fire modes 1-3, pivot 1, stand down keeps up to 2 as reserve), 2-3 fire modes per weapon, facing and flanks (side +10, rear +20 and the backpack, which can cook off), reserve-paid return fire, overwatch lanes that fire mid-walk, shield guard, push and fall, knockdown, smoke screens. HUD: drive and reserve pips, status chips, a fire panel listing every mode with its DP, odds and why it is blocked, Face buttons (free right after a walk), aim modes, hold fire. Spec: `docs/spec/15-combat-v2.md` (41 of 63 ids live; spec 10 lost the 9 ids v2 replaced). Sim: AI vs AI 41.5%, median 11 rounds, normal vs random 100% (`80-sim.md`). The AI never picks Aimed pair, Suppress, Smoke, Cover lane or Guard yet (AI v2, slice 5f). Next: slice 5c (kick, grab, throw, dash, brace, overdrive, mark, tow; rolling wagons and toppling stacks).
+- **Combat v2, slices 5b and 5c done (2026-11-26).** The turn runs on drive points with 2-3 fire modes per weapon, facing and flanks, reserve-paid return fire, overwatch, shield guard, pushes and smoke (5b). Part maneuvers are in: Dash and Hop (light legs), Kick and Brace (medium), Brace and Plant (heavy), Ram jab (WEDGE arms, so salvaged arms teach it), Grab and Throw (an empty hand), Overdrive (any body), Mark (sensor), Tow (repair crane). The yard is a weapon: coupled wagons roll down the rails as a rake and knock walkers off the track; damaged container stacks topple onto the next two tiles (5c). 56 of 63 spec 15 ids are live. Sim: AI vs AI 42.5%, median 10 rounds, normal vs random 100% (`80-sim.md`). The AI still skips Aimed pair, Suppress, Smoke, Cover lane, Guard, Grab, Dash, Brace, Plant, Overdrive and Tow (AI v2, 5f). Next: slice 5e (nerve gains and losses, signatures).
 - **Voices:** the owner is not happy with the stock ElevenLabs voices. A local recast on EVILAEGIS is ready to run: `HANDOFF-GPU.md`, `tools/audio/local-voices.mjs`, `tools/audio/cast.json`.
 - Salvage is generous (about 21 items a win): revisit with contract 2's economy.
 - No fog of war yet (PLAN Q3). Facing comes with v2 (D13). Pilots do not level up yet.

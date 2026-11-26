@@ -3,10 +3,10 @@
 // drive left allows, turn to face the threat, then stand down with the rest as reserve. AI v2 (slice 5f) replaces
 // this with a search over whole sequences.
 import { pack, RULES } from '../engine/data';
-import { arcOf, dirTo, dist, hasCover, tileAt, type Pos } from '../engine/grid';
+import { ahead, arcOf, dirTo, dist, FACINGS, hasCover, tileAt, unitAt, type Pos } from '../engine/grid';
 import {
-  callable, cheapestMode, expectedDamage, faceToward, fireBlock, living, maxHp, modes, patchCost, pivotCost, returnFire,
-  stats, walkRange, weapons, type ModeInfo,
+  callable, canHitAny, cheapestMode, expectedDamage, expectedOf, faceToward, fireBlock, living, maneuverBlock, maneuverRoll, maneuversOf, maxHp,
+  modes, patchCost, pivotCost, returnFire, shuntDir, stats, walkRange, weapons, type Roll,
 } from '../engine/query';
 import { hashText } from '../engine/rng';
 import { legalActions } from '../engine/step';
@@ -14,7 +14,7 @@ import type { Action, BattleState, Facing, HitSlot, LastWalk, Side, Unit, Weapon
 
 export type Difficulty = 'normal' | 'random';
 
-interface Shot { slot: WeaponSlot; mode: string; target: Unit; part?: HitSlot; score: number; dp: number }
+interface Shot { slot: WeaponSlot | null; mode: string; maneuver: boolean; target: Unit; part?: HitSlot; score: number; dp: number }
 interface Plan { at: Pos; facing: Facing; path: Pos[]; shots: Shot[]; score: number }
 
 /** The value the AI puts on one point of drive kept back (reserve buys return fire). */
@@ -40,8 +40,8 @@ function distanceField(s: BattleState, side: Side): number[] {
 }
 
 /** A fire order's worth: expected damage, kills, effects, minus the return fire it draws and the drive it costs. */
-function shotScore(s: BattleState, u: Unit, mi: ModeInfo, t: Unit, at: Pos): number {
-  const e = expectedDamage(s, u, mi.slot, mi.mode.id, t, at);
+function shotScore(s: BattleState, u: Unit, mi: Roll, t: Unit, at: Pos): number {
+  const e = expectedOf(s, u, mi, t, at);
   let score = e;
   if (e >= t.hp.body * 0.9) score += 40; // likely kill
   const fx = mi.mode.effect;
@@ -53,7 +53,7 @@ function shotScore(s: BattleState, u: Unit, mi: ModeInfo, t: Unit, at: Pos): num
     const rf = returnFire(s, t, u, at);
     if (rf) score -= 0.6 * expectedDamage(s, t, rf.slot, rf.mode.id, { ...u, x: at.x, y: at.y }, t, 'return');
   }
-  if (mi.slot === 'P' && mi.weapon.ammo !== null) score -= 4; // keep a round back for a better shot
+  if (mi.slot === 'P' && u.ammo !== null) score -= 4; // keep a round back for a better shot
   score += (1 - t.hp.body / maxHp(t, 'body')) * 10; // finish the wounded
   return score - DP_VALUE * mi.dp;
 }
@@ -68,7 +68,18 @@ function bestShot(s: BattleState, u: Unit, at: Pos, skip: WeaponSlot[] = []): Sh
       if (fireBlock(s, u, mi.slot, mi.mode.id, t, at) !== null) continue;
       const part: HitSlot | undefined = mi.mode.call ? (callable(t, at).includes('pack') ? 'pack' : t.hp.body <= t.hp.legs ? 'body' : 'legs') : undefined;
       const sc = shotScore(s, u, mi, t, at) + (part === 'pack' ? 10 : 0);
-      if (!best || sc > best.score) best = { slot: mi.slot, mode: mi.mode.id, target: t, part, score: sc, dp: mi.dp };
+      if (!best || sc > best.score) best = { slot: mi.slot, mode: mi.mode.id, maneuver: false, target: t, part, score: sc, dp: mi.dp };
+    }
+  }
+  // Attack maneuvers (Kick, Ram jab, Throw). Grab is left to AI v2.
+  const ghost = { ...u, x: at.x, y: at.y };
+  for (const m of maneuversOf(u)) {
+    if (m.def.kind !== 'attack' || m.id === 'grab' || (m.slot && skip.includes(m.slot))) continue;
+    const r = maneuverRoll(m.id, m.slot)!;
+    for (const t of enemies) {
+      if (maneuverBlock(s, ghost, m.id, m.slot, t, null) !== null) continue;
+      const sc = shotScore(s, u, r, t, at);
+      if (!best || sc > best.score) best = { slot: m.slot, mode: m.id, maneuver: true, target: t, score: sc, dp: r.dp };
     }
   }
   return best;
@@ -78,7 +89,7 @@ function bestShot(s: BattleState, u: Unit, at: Pos, skip: WeaponSlot[] = []): Sh
 function package_(s: BattleState, ghost: Unit, at: Pos): Shot[] {
   const first = bestShot(s, ghost, at);
   if (!first || first.score <= 0) return [];
-  const g2 = { ...ghost, drive: ghost.drive - first.dp, fired: [...ghost.fired, first.slot] };
+  const g2 = { ...ghost, drive: ghost.drive - first.dp, fired: first.slot ? [...ghost.fired, first.slot] : ghost.fired };
   const second = bestShot(s, g2, at);
   return second && second.score > 0 ? [first, second] : [first];
 }
@@ -103,7 +114,7 @@ function threatAt(s: BattleState, u: Unit, at: Pos, facing: Facing): number {
 function walkInfo(u: Unit, path: Pos[]): LastWalk {
   const dirs: Facing[] = [];
   for (let i = 1; i < path.length; i++) dirs.push(dirTo(path[i - 1]!, path[i]!)!);
-  return { from: { x: u.x, y: u.y }, facing: u.facing, dp: RULES.drive.walk, dir: dirs.length && dirs.every((d) => d === dirs[0]) ? dirs[0]! : null, steps: dirs.length, reacted: false, wasWalked: u.walked };
+  return { from: { x: u.x, y: u.y }, facing: u.facing, dp: RULES.drive.walk, nerve: 0, dir: dirs.length && dirs.every((d) => d === dirs[0]) ? dirs[0]! : null, steps: dirs.length, reacted: false, wasWalked: u.walked };
 }
 
 function bestPlan(s: BattleState, u: Unit, field: number[]): Plan {
@@ -149,6 +160,35 @@ function patchPlan(s: BattleState, u: Unit): Action | null {
   return bestA;
 }
 
+/** FLD-3: the worth of shunting the wagon at `p`: who it would hit first. */
+function shuntValue(s: BattleState, u: Unit, p: Pos): number {
+  const dir = shuntDir(s, u, p);
+  if (!dir) return -Infinity;
+  let cur = p;
+  for (;;) { const n = ahead(cur, dir), t = tileAt(s, n.x, n.y); if (t?.rail && t.obj === 'wagon') cur = n; else break; } // the rake's lead
+  for (let n = 0; n < RULES.wagon.roll; n++) {
+    const nx = ahead(cur, dir), t = tileAt(s, nx.x, nx.y);
+    if (!t || !t.rail || t.obj) return -Infinity;
+    const w = unitAt(s, nx.x, nx.y);
+    if (w) return w.side === u.side ? -Infinity : RULES.wagon.dmg + 15 + (w.hp.body <= RULES.wagon.dmg ? 40 : 0) - 4 * 2;
+    cur = nx;
+  }
+  return -Infinity;
+}
+
+/** MAN-9: mark the enemy the most allies still to act can fire on, if any. */
+function markPlan(s: BattleState, u: Unit): Action | null {
+  if (!maneuversOf(u).some((m) => m.id === 'mark')) return null;
+  let best: Unit | null = null, bestN = 0;
+  const allies = living(s, u.side).filter((a) => a.id !== u.id && !a.done);
+  for (const t of s.units) {
+    if (maneuverBlock(s, u, 'mark', null, t, null)) continue;
+    const n = allies.filter((a) => canHitAny(s, a, t)).length;
+    if (n > bestN) { bestN = n; best = t; }
+  }
+  return best && bestN >= 1 ? { type: 'maneuver', unit: u.id, id: 'mark', target: best.id } : null;
+}
+
 /** One order for walker `u`. Every branch changes the state, so a phase always ends. */
 function orderFor(s: BattleState, u: Unit, field: number[]): Action {
   const heal = u.walked ? patchPlan(s, u) : null;
@@ -157,8 +197,16 @@ function orderFor(s: BattleState, u: Unit, field: number[]): Action {
     const plan = bestPlan(s, u, field);
     if (plan.at.x !== u.x || plan.at.y !== u.y) return { type: 'walk', unit: u.id, x: plan.at.x, y: plan.at.y, facing: plan.facing };
   }
+  const mark = markPlan(s, u);
+  if (mark) return mark;
   const shot = bestShot(s, u, u, u.fired);
-  if (shot && shot.score > 0) return { type: 'fire', unit: u.id, slot: shot.slot, mode: shot.mode, target: shot.target.id, ...(shot.part ? { part: shot.part } : {}) };
+  let wagon: { p: Pos; v: number } | null = null;
+  if (u.drive >= 2) for (const f of FACINGS) { const p = ahead(u, f); const v = shuntValue(s, u, p); if (v > (wagon?.v ?? 0)) wagon = { p, v }; }
+  if (wagon && (!shot || wagon.v > shot.score)) return { type: 'maneuver', unit: u.id, id: 'shunt', x: wagon.p.x, y: wagon.p.y };
+  if (shot && shot.score > 0) {
+    if (shot.maneuver) return { type: 'maneuver', unit: u.id, id: shot.mode, target: shot.target.id, ...(shot.slot ? { slot: shot.slot } : {}) };
+    return { type: 'fire', unit: u.id, slot: shot.slot!, mode: shot.mode, target: shot.target.id, ...(shot.part ? { part: shot.part } : {}) };
+  }
   const heal2 = patchPlan(s, u);
   if (heal2) return heal2;
   // Turn to face the threat: always when one stands behind, otherwise only with drive to spare for reserve.

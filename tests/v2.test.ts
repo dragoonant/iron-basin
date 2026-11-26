@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { PARTS, RULES } from '../src/engine/data';
 import { arcOf, hasCover, hasLos } from '../src/engine/grid';
 import {
-  callable, fireBlock, hitChance, hitWeights, overwatchers, returnFire, shieldCut, spotted, stats,
+  callable, dashRange, fireBlock, hasTrait, hitChance, hitWeights, maneuverBlock, maneuversOf, overwatchers, returnFire, shieldCut, spotted, stats, walkRange,
 } from '../src/engine/query';
 import { seedRng } from '../src/engine/rng';
-import { legalActions, step } from '../src/engine/step';
+import { legalActions, newBattle, step } from '../src/engine/step';
 import type { Action, BattleState, GameEvent, Side } from '../src/engine/types';
 import { arena, place, u } from './helpers';
 
@@ -324,15 +324,117 @@ describe('facing (slice 5b)', () => {
 });
 
 describe('maneuvers (slice 5c)', () => {
-  it.todo('MAN-1 A walker may use the maneuvers its parts list, the universal list, and its pilot’s');
-  it.todo('MAN-2 Dash: a walk with move + moveBonus');
-  it.todo('MAN-3 Hop: climbing costs no climbCost, and a fall does no damage and does not knock do');
-  it.todo('MAN-4 Kick and Ram jab: melee rolls against an adjacent walker with the maneuver’s baseAcc');
-  it.todo('MAN-5 Brace: until the walker’s next phase it cannot be pushed or knocked down and its eva');
-  it.todo('MAN-6 Grab: a melee roll at baseAcc, no damage');
-  it.todo('MAN-7 Throw: a direct roll at baseAcc/baseDmg, range min..max');
-  it.todo('MAN-8 Overdrive: +gain drive now');
-  it.todo('MAN-9 Mark: a walker in sensorRange and in the walker’s own line of sight is marked until');
+  it('MAN-1 maneuvers come from the body, standing arms, legs, a working pack and the universal list', () => {
+    const s = arena(['marlow', 'varga', 'dir-2']);
+    const ids = (id: string) => maneuversOf(u(s, id)).map((m) => `${m.id}${m.slot ?? ''}`);
+    expect(ids('marlow')).toEqual(expect.arrayContaining(['overdrive', 'kick', 'brace', 'pivot', 'shunt', 'breakFree']));
+    expect(ids('marlow').some((x) => x.startsWith('grab'))).toBe(false);
+    expect(ids('varga')).toEqual(expect.arrayContaining(['dash', 'hop', 'mark', 'grabL', 'throwL']));
+    expect(ids('dir-2')).toEqual(expect.arrayContaining(['ramjabL', 'ramjabR', 'grabL']));
+    u(s, 'dir-2').hp.armL = 0; u(s, 'varga').status.packOut = true;
+    expect(ids('dir-2')).not.toContain('ramjabL');
+    expect(ids('varga')).not.toContain('mark');
+  });
+  it('MAN-2 Dash walks 3 further for 1 drive and 1 nerve', () => {
+    let s = arena(['varga', 'dir-2']);
+    place(s, 'varga', 5, 15); place(s, 'dir-2', 0, 0);
+    expect(walkRange(s, u(s, 'varga')).some((r) => r.x === 5 && r.y === 8)).toBe(false);
+    expect(dashRange(s, u(s, 'varga')).some((r) => r.x === 5 && r.y === 8)).toBe(true);
+    const nerve = u(s, 'varga').nerve;
+    s = ok(s, { type: 'maneuver', unit: 'varga', id: 'dash', x: 5, y: 8, facing: 'N' }).state;
+    expect([u(s, 'varga').y, u(s, 'varga').drive, u(s, 'varga').nerve]).toEqual([8, 4, nerve - 1]);
+    s = ok(s, { type: 'undoWalk', unit: 'varga' }).state;
+    expect([u(s, 'varga').y, u(s, 'varga').nerve]).toEqual([15, nerve]);
+  });
+  it('MAN-3 Hop climbs for free and falls without harm', () => {
+    const s = arena(['varga', 'marlow', 'dir-4']);
+    place(s, 'varga', 5, 10); place(s, 'marlow', 9, 10); place(s, 'dir-4', 5, 9);
+    tile(s, 5, 11).h = 1; tile(s, 9, 11).h = 1;
+    expect(hasTrait(u(s, 'varga'), 'hop')).toBe(true);
+    expect(walkRange(s, u(s, 'varga')).find((r) => r.x === 5 && r.y === 11)?.cost).toBe(1);
+    expect(walkRange(s, u(s, 'marlow')).find((r) => r.x === 9 && r.y === 11)?.cost).toBe(2);
+    tile(s, 5, 9).h = 1; tile(s, 5, 10).h = 1; tile(s, 5, 11).h = 0;
+    turn(s, 'hostile');
+    const r = until(s, { type: 'fire', unit: 'dir-4', slot: 'L', mode: 'shove', target: 'varga' }, (ev) => ev.some((e) => e.type === 'pushed'));
+    expect(r.events.find((e) => e.type === 'pushed')).toMatchObject({ result: 'fell', dmg: 0 });
+    expect(u(r.state, 'varga').status.down).toBe(false);
+  });
+  it('MAN-4 Kick lands on the legs and pushes; Ram jab uses its arm and pushes', () => {
+    const s = arena(['marlow', 'dir-2']);
+    place(s, 'marlow', 5, 10); place(s, 'dir-2', 5, 9);
+    const k = until(s, { type: 'maneuver', unit: 'marlow', id: 'kick', target: 'dir-2' }, hitOn('dir-2'));
+    const e = k.events.find((x) => x.type === 'attack' && x.unit === 'marlow')!;
+    expect(e.type === 'attack' && e.shots[0]).toMatchObject({ hit: true, part: 'legs' });
+    expect(u(k.state, 'dir-2').y).toBe(8);
+    const h = turn(arena(['marlow', 'dir-2']), 'hostile');
+    place(h, 'marlow', 5, 10); place(h, 'dir-2', 5, 9);
+    const j = until(h, { type: 'maneuver', unit: 'dir-2', id: 'ramjab', slot: 'L', target: 'marlow' }, hitOn('marlow'));
+    expect(u(j.state, 'dir-2').fired).toContain('L');
+    expect(u(j.state, 'marlow').y).toBe(11);
+    no(h, { type: 'maneuver', unit: 'dir-2', id: 'ramjab', target: 'marlow' });
+  });
+  it('MAN-5 Brace stops pushes and knockdowns at -10 evasion; Plant is cover for whoever stands behind', () => {
+    let s = arena(['marlow', 'haldane', 'dir-4']);
+    place(s, 'marlow', 5, 8); place(s, 'dir-4', 5, 7); place(s, 'haldane', 5, 9);
+    const ev = stats(s, u(s, 'marlow')).evade;
+    s = ok(s, { type: 'maneuver', unit: 'marlow', id: 'brace' }).state;
+    expect(stats(s, u(s, 'marlow')).evade).toBe(ev - 10);
+    s = turn(s, 'hostile');
+    const r = until(s, { type: 'fire', unit: 'dir-4', slot: 'L', mode: 'shove', target: 'marlow' }, hitOn('marlow'));
+    expect([u(r.state, 'marlow').x, u(r.state, 'marlow').y]).toEqual([5, 8]);
+    let p = arena(['okonjo', 'haldane', 'dir-2']);
+    place(p, 'okonjo', 5, 9); place(p, 'haldane', 5, 10); place(p, 'dir-2', 5, 5);
+    expect(hasCover(p, u(p, 'dir-2'), u(p, 'haldane'))).toBe(false);
+    p = ok(p, { type: 'maneuver', unit: 'okonjo', id: 'plant' }).state;
+    expect(hasCover(p, u(p, 'dir-2'), u(p, 'haldane'))).toBe(true);
+    p = ok(p, { type: 'walk', unit: 'okonjo', x: 6, y: 9, facing: 'N' }).state;
+    expect(u(p, 'okonjo').status.planted).toBe(false);
+  });
+  it('MAN-6 Grab holds an adjacent enemy: no walking, both lose evasion, break free for 2, ends at the grabber’s next phase', () => {
+    let s = arena(['varga', 'dir-2']);
+    place(s, 'varga', 5, 10); place(s, 'dir-2', 5, 9);
+    const ev = stats(s, u(s, 'dir-2')).evade;
+    s = until(s, { type: 'maneuver', unit: 'varga', id: 'grab', slot: 'L', target: 'dir-2' }, hitOn('dir-2')).state;
+    expect(u(s, 'dir-2').status.grabbedBy).toBe('varga');
+    expect(stats(s, u(s, 'dir-2')).evade).toBe(ev - RULES.grabEvade);
+    s = step(s, { type: 'endPhase' }).state;
+    expect(walkRange(s, u(s, 'dir-2'))).toEqual([]);
+    const free = ok(s, { type: 'maneuver', unit: 'dir-2', id: 'breakFree' }).state;
+    expect([u(free, 'dir-2').status.grabbedBy, u(free, 'varga').grip, u(free, 'dir-2').drive]).toEqual([null, null, 2]);
+    s = step(s, { type: 'endPhase' }).state;
+    expect(u(s, 'dir-2').status.grabbedBy).toBe(null);
+  });
+  it('MAN-7 Throw needs rubble next to the walker and reaches 2 to 4', () => {
+    const s = arena(['varga', 'dir-2']);
+    place(s, 'varga', 5, 12); place(s, 'dir-2', 5, 9);
+    expect(maneuverBlock(s, u(s, 'varga'), 'throw', 'L', u(s, 'dir-2'), null)).toContain('rubble');
+    tile(s, 4, 12).t = 'rubble';
+    expect(maneuverBlock(s, u(s, 'varga'), 'throw', 'L', u(s, 'dir-2'), null)).toBe(null);
+    place(s, 'dir-2', 5, 6);
+    expect(maneuverBlock(s, u(s, 'varga'), 'throw', 'L', u(s, 'dir-2'), null)).toBe('out of range');
+  });
+  it('MAN-8 Overdrive: +2 drive for 3 nerve and 10 body, once a phase', () => {
+    let s = arena(['marlow', 'dir-2']);
+    const body = u(s, 'marlow').hp.body;
+    s = ok(s, { type: 'maneuver', unit: 'marlow', id: 'overdrive' }).state;
+    expect([u(s, 'marlow').drive, u(s, 'marlow').nerve, u(s, 'marlow').hp.body]).toEqual([6, 5, body - 10]);
+    no(s, { type: 'maneuver', unit: 'marlow', id: 'overdrive' });
+    const low = arena(['marlow', 'dir-2']); u(low, 'marlow').hp.body = 10;
+    no(low, { type: 'maneuver', unit: 'marlow', id: 'overdrive' });
+  });
+  it('MAN-9 Mark: +15 to hit for the marking side, unlocks Tagged salvo, clears at that side’s next phase', () => {
+    let s = arena(['varga', 'marlow', 'dir-2']);
+    place(s, 'varga', 5, 12); place(s, 'marlow', 6, 11); place(s, 'dir-2', 5, 8);
+    const before = hitChance(s, u(s, 'marlow'), 'L', 'double', u(s, 'dir-2'));
+    s = ok(s, { type: 'maneuver', unit: 'varga', id: 'mark', target: 'dir-2' }).state;
+    expect(hitChance(s, u(s, 'marlow'), 'L', 'double', u(s, 'dir-2'))).toBe(Math.min(RULES.hitMax, before + RULES.markBonus));
+    u(s, 'marlow').build.pack = 'pack-missile'; u(s, 'marlow').ammo = 2;
+    expect(fireBlock(s, u(s, 'marlow'), 'P', 'tagged', u(s, 'dir-2'))).toBe(null);
+    s = endBoth(s);
+    expect(u(s, 'dir-2').status.markedBy).toBe(null);
+    place(s, 'dir-2', 5, 2);
+    expect(maneuverBlock(s, u(s, 'varga'), 'mark', null, u(s, 'dir-2'), null)).toContain('range');
+  });
   it('MAN-10 Patch costs 2 drive and a charge, and restores a damaged, not lost part of the walker or an adjacent ally', () => {
     const s = arena(['haldane', 'marlow']);
     place(s, 'haldane', 5, 10); place(s, 'marlow', 5, 11);
@@ -342,8 +444,23 @@ describe('maneuvers (slice 5c)', () => {
     expect(u(r, 'marlow').hp.legs).toBe(85);
     expect([u(r, 'haldane').drive, u(r, 'haldane').charges]).toEqual([2, 2]);
   });
-  it.todo('MAN-11 Tow: the walker steps one tile straight away from an adjacent ally and the ally m');
-  it.todo('MAN-12 Shunt wagon: see FLD-3');
+  it('MAN-11 Tow steps the walker away from an adjacent ally and drags the ally into its tile', () => {
+    let s = arena(['haldane', 'marlow', 'dir-2']);
+    place(s, 'haldane', 5, 10); place(s, 'marlow', 5, 9); place(s, 'dir-2', 0, 0);
+    u(s, 'marlow').status.down = true;
+    s = ok(s, { type: 'maneuver', unit: 'haldane', id: 'tow', target: 'marlow' }).state;
+    expect([u(s, 'haldane').y, u(s, 'marlow').y, u(s, 'marlow').status.down, u(s, 'haldane').drive]).toEqual([11, 10, true, 3]);
+    tile(s, 5, 12).obj = 'barrier';
+    no(s, { type: 'maneuver', unit: 'haldane', id: 'tow', target: 'marlow' });
+  });
+  it('MAN-12 Shunt wagon needs the walker on the rails next to a wagon on the same line', () => {
+    const s = arena(['marlow', 'dir-2']);
+    place(s, 'marlow', 4, 12); place(s, 'dir-2', 0, 0);
+    tile(s, 4, 11).obj = 'wagon'; tile(s, 4, 11).objHp = 60;
+    expect(maneuverBlock(s, u(s, 'marlow'), 'shunt', null, null, { x: 4, y: 11 })).toBe(null);
+    place(s, 'marlow', 5, 11);
+    expect(maneuverBlock(s, u(s, 'marlow'), 'shunt', null, null, { x: 4, y: 11 })).toContain('rails');
+  });
 });
 
 describe('reactions (slice 5b)', () => {
@@ -457,9 +574,50 @@ describe('the field (slice 5c)', () => {
     s = endBoth(s);
     expect(u(s, 'marlow').drive).toBe(4 - RULES.drive.knockedDown);
   });
-  it.todo('FLD-3 Shunt wagon: a walker on a rail tile next to a wagon on the same rail line,');
-  it.todo('FLD-4 Rolling wagons carry their HP');
-  it.todo('FLD-5 Container stacks: a stack at stack.toppleAt HP or less, but above 0, after a hit or a');
+  const yard = () => { const s = arena(['marlow', 'dir-2', 'dir-4']); place(s, 'marlow', 4, 15); place(s, 'dir-2', 4, 9); place(s, 'dir-4', 0, 0); tile(s, 4, 14).obj = 'wagon'; tile(s, 4, 14).objHp = 60; return s; };
+  it('FLD-3 a shunted wagon rolls along the rails and knocks the first walker off the track', () => {
+    const r = ok(yard(), { type: 'maneuver', unit: 'marlow', id: 'shunt', x: 4, y: 14 });
+    expect(r.events[0]).toMatchObject({ type: 'wagon', cars: [{ from: { x: 4, y: 14 }, to: { x: 4, y: 10 } }], hit: 'dir-2' });
+    expect(tile(r.state, 4, 10).obj).toBe('wagon');
+    expect(u(r.state, 'dir-2')).toMatchObject({ x: 3, y: 9, status: expect.objectContaining({ down: true }) });
+    expect(u(r.state, 'dir-2').hp.body).toBe(105 - RULES.wagon.dmg);
+    expect(r.events.some((e) => e.type === 'attack')).toBe(false);
+    const far = yard(); place(far, 'dir-2', 0, 1);
+    expect(ok(far, { type: 'maneuver', unit: 'marlow', id: 'shunt', x: 4, y: 14 }).events[0]).toMatchObject({ cars: [{ to: { x: 4, y: 14 - RULES.wagon.roll } }] });
+    // A coupled pair rolls together; the lead takes the hit.
+    const pair = yard(); tile(pair, 4, 13).obj = 'wagon'; tile(pair, 4, 13).objHp = 60;
+    const pr = ok(pair, { type: 'maneuver', unit: 'marlow', id: 'shunt', x: 4, y: 14 });
+    expect(pr.events[0]).toMatchObject({ cars: [{ from: { x: 4, y: 13 }, to: { x: 4, y: 10 } }, { from: { x: 4, y: 14 }, to: { x: 4, y: 11 } }], hit: 'dir-2' });
+  });
+  it('FLD-4 a wagon keeps its HP as it rolls and breaks to rubble where a collision ends it', () => {
+    const s = yard(); place(s, 'dir-2', 0, 1); tile(s, 4, 12).obj = 'barrier'; tile(s, 4, 12).objHp = 45;
+    tile(s, 4, 14).objHp = 20;
+    const hard = ok(s, { type: 'maneuver', unit: 'marlow', id: 'shunt', x: 4, y: 14 });
+    expect(hard.events[0]).toMatchObject({ cars: [{ to: { x: 4, y: 13 }, hp: 20 - RULES.wagon.collide, broken: false }], obj: { x: 4, y: 12 } });
+    expect(tile(hard.state, 4, 13).objHp).toBe(20 - RULES.wagon.collide);
+    tile(s, 4, 14).objHp = 10;
+    const bust = ok(s, { type: 'maneuver', unit: 'marlow', id: 'shunt', x: 4, y: 14 });
+    expect(tile(bust.state, 4, 13)).toMatchObject({ obj: null, t: 'rubble' });
+  });
+  it('FLD-5 a stack at 30 HP or less topples away from a hit onto the next 2 tiles; topples do not chain', () => {
+    const s = arena(['marlow', 'dir-2', 'dir-4']);
+    place(s, 'marlow', 5, 12); place(s, 'dir-2', 5, 9); place(s, 'dir-4', 0, 0);
+    tile(s, 5, 10).obj = 'container'; tile(s, 5, 10).objHp = 60; tile(s, 5, 10).stack = true;
+    tile(s, 5, 8).obj = 'container'; tile(s, 5, 8).objHp = 25; tile(s, 5, 8).stack = true;
+    const r = ok(s, { type: 'fireAt', unit: 'marlow', slot: 'L', mode: 'double', x: 5, y: 10 });
+    const tp = r.events.find((e) => e.type === 'toppled')!;
+    expect(tp).toMatchObject({ x: 5, y: 10, dir: 'N' });
+    expect(tile(r.state, 5, 10)).toMatchObject({ obj: null, t: 'rubble' });
+    expect(u(r.state, 'dir-2').hp.body).toBe(105 - RULES.stack.dmg);
+    expect(u(r.state, 'dir-2').status.down).toBe(true);
+    expect(tile(r.state, 5, 8).obj).toBe(null);
+    const c = arena(['marlow', 'dir-2', 'dir-4']); place(c, 'marlow', 5, 12); place(c, 'dir-4', 0, 0); place(c, 'dir-2', 0, 2);
+    tile(c, 5, 10).obj = 'container'; tile(c, 5, 10).objHp = 60; tile(c, 5, 10).stack = true;
+    tile(c, 5, 8).obj = 'container'; tile(c, 5, 8).objHp = 80; tile(c, 5, 8).stack = true;
+    const r2 = ok(c, { type: 'fireAt', unit: 'marlow', slot: 'L', mode: 'double', x: 5, y: 10 });
+    expect(r2.events.filter((e) => e.type === 'toppled').length).toBe(1);
+    expect(tile(r2.state, 5, 8)).toMatchObject({ obj: 'container', objHp: 80 - RULES.stack.dmg });
+  });
   it('FLD-6 smoke blocks sight through it, gives cover inside it, and clears at the firer side’s next phase', () => {
     let s = arena(['okonjo', 'varga', 'dir-2']);
     place(s, 'okonjo', 5, 14); place(s, 'varga', 9, 9); place(s, 'dir-2', 5, 4);
@@ -471,7 +629,14 @@ describe('the field (slice 5c)', () => {
     s = step(s, { type: 'endPhase' }).state;
     expect(s.smoke.length).toBe(0);
   });
-  it.todo('FLD-7 Smoke, rails and stacks are in the plain-JSON state: smoke as a list of tiles with the s');
+  it('FLD-7 rails and stacks are tile flags in the plain-JSON state', () => {
+    const s = newBattle('marrow-yard', 1);
+    expect(tile(s, 4, 0).rail).toBe('ns');
+    expect(tile(s, 11, 17).rail).toBe('ns');
+    expect(tile(s, 5, 0).rail).toBeUndefined();
+    expect(tile(s, 7, 0).stack).toBe(true);
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);
+  });
   it('FLD-8 pushes never draw reactions', () => {
     const r = shove((s) => { place(s, 'haldane', 3, 9); u(s, 'haldane').overwatch = { slot: 'R', dir: 'E' }; u(s, 'haldane').facing = 'E'; u(s, 'haldane').reserve = 1; });
     expect(r.events.some((e) => e.type === 'attack' && e.reaction === 'overwatch')).toBe(false);

@@ -7,7 +7,7 @@
 | Slice | Ids | State |
 |---|---|---|
 | 5b core loop | DRV-1..9, HIT-1..4, MOD-1..9, FAC-1..6, RCT-1..7, FLD-1, FLD-2, FLD-6, FLD-8, MAN-10 | landed 2026-11-26 |
-| 5c maneuvers and field | MAN-1..9, MAN-11, MAN-12, FLD-3..5, FLD-7 | next |
+| 5c maneuvers and field | MAN-1..9, MAN-11, MAN-12, FLD-3..5, FLD-7 | landed 2026-11-26 |
 | 5e nerve | NRV-1..7 (the Steady and Shaken bands of HIT-2 already count; nerve does not change yet) | |
 
 Reactions moved from 5d into 5b: once drive exists, the automatic counter has to become reserve-paid return fire, and the modes need push, knockdown, smoke, guard and overwatch to mean anything.
@@ -93,7 +93,7 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
   - water: it moves and is **mired** (`drive.mired` less drive in its next phase);
   - off the map, an object, a walker, or one level higher: **collision**: `push.collide` to the body of the pushed walker and of any walker it hits, and to an object's HP if it is breakable (FLD-5 then checks a topple). Nobody moves.
 - **FLD-2** **Knocked down**: evasion 0 (HIT-2), hits use the rear weights (FAC-3), no reactions; getting up costs `drive.knockedDown` in its next phase (DRV-1). A walker already down is not knocked down again.
-- **FLD-3** **Shunt wagon** (2 DP): a walker on a rail tile (`rails` in the mission) next to a wagon on the same rail line, along the line, sends the wagon rolling away from it along the rails. It moves one tile at a time, up to `wagon.roll` tiles, and stops before the end of the rails or an object (both take `wagon.collide`). If the next tile holds a walker, that walker takes `wagon.dmg` to the body and is pushed off the track sideways (FLD-1, towards lower x first, else higher x, else a collision) and knocked down; the wagon stops before it.
+- **FLD-3** **Shunt wagon** (2 DP): a walker on a rail tile (`rails` in the mission) next to a wagon on the same rail line, along the line, sends the wagon rolling away from it along the rails, together with every wagon coupled ahead of it (touching, on the same line): the **rake**. The rake moves one tile at a time, up to `wagon.roll` tiles, and stops before the end of the rails or an object (the lead wagon and the object take `wagon.collide`). If the next tile holds a walker, that walker takes `wagon.dmg` to the body and is pushed off the track sideways (FLD-1, towards lower x first, else higher x, else a collision) and knocked down; the rake stops before it.
 - **FLD-4** Rolling wagons carry their HP; a wagon broken by a collision becomes rubble where it stands.
 - **FLD-5** **Container stacks** (`stacks` in the mission): a stack at `stack.toppleAt` HP or less, but above 0, after a hit or a collision **topples** away from what hit it. The stack tile becomes rubble. Each of the next `stack.reach` tiles beyond: a walker there takes `stack.dmg` to the body and is knocked down; an object there takes `stack.dmg`; a free tile becomes rubble. Tiles off the map are skipped.
 - **FLD-6** **Smoke**: fired at a tile in the mortar's range that the firer or an ally can see (ATK-5); it covers that tile and every tile within `smokeRadius` (a 3×3 square, clipped to the field). A smoke tile blocks line of sight when it lies between attacker and target (MAP-4), and a walker standing in smoke has cover (MAP-5). Smoke clears when the firer's side's next phase starts.
@@ -133,5 +133,9 @@ Everything else in spec 10 (the field, line of sight, cover, part loss, phases, 
 - RULING: RCT-2 | return fire is the cheapest mode of the best weapon | a reaction is a snap answer, not a full burst; the choice of weapon is kept from spec 10's ATK-8 ruling.
 - RULING: RCT-3 | overwatch fires on walks only, not pushes, tows or rolls | a push is not a choice the moving walker made.
 - RULING: FLD-3 | a walker hit by a wagon is pushed towards lower x first | deterministic and readable; both Marrow Yard lines run north-south.
+- RULING: FLD-3 | coupled wagons roll together as a rake | every wagon in Marrow Yard stands in a pair; a lone wagon would only bump its partner.
+- RULING: MAN-1 | lost legs lose their maneuvers, like a lost arm | a walker on its stumps does not Dash, Kick or Brace.
+- RULING: MAN-6 | a push that moves either walker ends the grab; a push that collides does not | the grab is broken by being torn apart, not by a bump.
+- RULING: FLD-5 | the topple runs along the axis the hit came in on; an exact diagonal counts as the x axis | deterministic and previewable.
 - RULING: FLD-5 | topples do not chain | a topple can hit another stack, which takes damage but does not fall that turn; chains are hard to read and to preview.
 - RULING: NRV-5 | Drill tempo gives drive now, not next phase | the hostile AI plans phase by phase; a delayed gain would be wasted on walkers that already stood down.

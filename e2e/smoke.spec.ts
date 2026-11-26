@@ -82,3 +82,18 @@ test('drive and facing: a pivot costs 1, re-facing right after a walk is free', 
   const r = await ib(page, 'window.__ib.state().live.units.find((u) => u.id === "marlow").reserve');
   expect(r).toBe(2);
 });
+
+test('the yard as a weapon: walk onto the rails and shunt the coupled wagons up the line', async ({ page }) => {
+  await toBattle(page);
+  await ib(page, 'window.__ib.dispatch({ type: "walk", unit: "marlow", x: 4, y: 14, facing: "N" })');
+  await ib(page, 'window.__ib.dispatch({ type: "walk", unit: "marlow", x: 4, y: 12, facing: "N" })');
+  await ib(page, 'window.__ib.skip()');
+  await ib(page, 'window.__ib.tapTile(4, 12)');
+  await ib(page, 'window.__ib.tapTile(4, 11)');
+  await expect(page.getByTestId('man-shunt')).toBeVisible();
+  await page.click('[data-testid=man-shunt]');
+  await ib(page, 'window.__ib.skip()');
+  const t = await ib(page, '(() => { const s = window.__ib.state().live; return [5, 6, 10, 11].map((y) => s.tiles[y * s.w + 4].obj); })()');
+  expect(t).toEqual(['wagon', 'wagon', null, null]);
+  await expect(page.locator('.feed')).toContainText('coupled wagons');
+});

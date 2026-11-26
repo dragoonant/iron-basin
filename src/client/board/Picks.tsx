@@ -5,7 +5,7 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { RULES } from '../../engine/data';
 import { ahead, dist, FACINGS, inBounds } from '../../engine/grid';
-import { canHitAny, indirectSight, laneTiles, modeIn, modes, stats, unitById, walkRange } from '../../engine/query';
+import { canHitAny, dashRange, indirectSight, laneTiles, modeIn, modes, stats, unitById, walkRange } from '../../engine/query';
 import { reachable } from '../../engine/grid';
 import type { BattleState, WeaponSlot } from '../../engine/types';
 import { useGame } from '../store';
@@ -25,7 +25,7 @@ const C = { aim: new THREE.Color('#ffb04a'), lane: new THREE.Color('#ff7a1a'), r
 
 interface Mark { i: number; color: THREE.Color; scale: number }
 
-export function marksFor(s: BattleState, selected: string | null, hover: { x: number; y: number } | null, target: string | null, targetObj: { x: number; y: number } | null, aim: { slot: WeaponSlot; mode: string } | null = null): Mark[] {
+export function marksFor(s: BattleState, selected: string | null, hover: { x: number; y: number } | null, target: string | null, targetObj: { x: number; y: number } | null, aim: { slot: WeaponSlot; mode: string } | null = null, maneuverAim: string | null = null): Mark[] {
   const out: Mark[] = [];
   const idx = (x: number, y: number) => y * s.w + x;
   const sel = selected ? unitById(s, selected) : null;
@@ -39,9 +39,11 @@ export function marksFor(s: BattleState, selected: string | null, hover: { x: nu
         else if (mi.mode.effect === 'overwatch') { for (const f of FACINGS) for (let n = 1; n <= mi.weapon.def.max; n++) { const p = ahead(sel, f, n); if (inBounds(s, p.x, p.y)) out.push({ i: idx(p.x, p.y), color: C.aim, scale: 0.6 }); } }
         else for (const a of s.units) if (a.alive && a.side === sel.side && a.id !== sel.id && dist(a, sel) === 1) out.push({ i: idx(a.x, a.y), color: C.aim, scale: 1 });
       }
-      const reach = sel.done || mi ? [] : walkRange(s, sel);
+      if (maneuverAim === 'dash' && !sel.done) for (const r of dashRange(s, sel)) out.push({ i: idx(r.x, r.y), color: C.aim, scale: 0.8 });
+      if (maneuverAim === 'tow' && !sel.done) for (const a of s.units) if (a.alive && a.side === sel.side && a.id !== sel.id && dist(a, sel) === 1) out.push({ i: idx(a.x, a.y), color: C.aim, scale: 1 });
+      const reach = sel.done || mi || maneuverAim ? [] : walkRange(s, sel);
       for (const r of reach) out.push({ i: idx(r.x, r.y), color: C.reach, scale: 0.92 });
-      if (!sel.done && !mi) {
+      if (!sel.done && !mi && !maneuverAim) {
         for (const t of s.units) if (t.alive && t.side !== sel.side && canHitAny(s, sel, t)) out.push({ i: idx(t.x, t.y), color: C.target, scale: 0.98 });
         if (hover) {
           const t = s.tiles[idx(hover.x, hover.y)];
@@ -92,10 +94,10 @@ export function Picks({ s }: { s: BattleState }) {
     const st = g.shown;
     if (!st) return;
     const busy = g.presenting || g.queue.length > 0;
-    const key = `${busy}|${g.selected}|${g.hover?.x},${g.hover?.y}|${g.target}|${g.targetObj?.x},${g.targetObj?.y}|${g.aim?.slot}${g.aim?.mode}|${st.turnCount}|${st.phase}`;
+    const key = `${busy}|${g.selected}|${g.hover?.x},${g.hover?.y}|${g.target}|${g.targetObj?.x},${g.targetObj?.y}|${g.aim?.slot}${g.aim?.mode}|${g.maneuverAim}|${st.turnCount}|${st.phase}`;
     if (key === lastKey.current) return;
     lastKey.current = key;
-    const marks = busy ? [] : marksFor(st, g.selected, g.hover, g.target, g.targetObj, g.aim);
+    const marks = busy ? [] : marksFor(st, g.selected, g.hover, g.target, g.targetObj, g.aim, g.maneuverAim);
     const m = new THREE.Matrix4();
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     for (let i = 0; i < n; i++) overlay.setMatrixAt(i, zero);
