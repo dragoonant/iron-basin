@@ -1,0 +1,343 @@
+{
+ "id": "kerrow-locks",
+ "name": "The Kerrow Locks",
+ "contract": 2,
+ "brief": "Take the canal locks below Kerrow from the Directorate, at night, and open the water route into town.",
+ "label": "THE KERROW LOCKS · CONTRACT 2",
+ "region": "VELL BASIN · THE KERROW LOCKS",
+ "roundLimit": 18,
+ "bonusRound": 11,
+ "fee": 3600,
+ "bonus": 1200,
+ "bounty": 600,
+ "briefing": [
+  {
+   "id": "kerrow-1",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "Kerrow's supply comes up the canal now. The Directorate took the locks below the town at dusk, and they mean to hold them through the night.",
+   "show": "region"
+  },
+  {
+   "id": "kerrow-2",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "Six walkers this time, and they have a spotter. Expect their missiles to find you.",
+   "show": "region"
+  },
+  {
+   "id": "kerrow-3",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "The Concord needs that lock gate working. Leave it standing and there is a bonus in it.",
+   "show": "plan"
+  },
+  {
+   "id": "kerrow-4",
+   "who": "marlow",
+   "name": "Capt. Ines Marlow, Grey Lantern Company",
+   "text": "And if they dig in on the low quays, I may have to let the water in.",
+   "show": "plan"
+  },
+  {
+   "id": "kerrow-5",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "Your call, Captain. The bridge winch is on our bank. Mind the lamps on the quays: they will light you up.",
+   "show": "plan"
+  },
+  {
+   "id": "kerrow-6",
+   "who": "marlow",
+   "name": "Capt. Ines Marlow, Grey Lantern Company",
+   "text": "Varga, the bridge. Okonjo and Haldane, the weir with me. Put the lights out where you can.",
+   "show": "plan"
+  }
+ ],
+ "rollOut": "The Lanterns roll down to the canal in the dark.",
+ "debrief": {
+  "win": "The locks are ours and the barges move at first light. Your salvage is on the quay, Captain.",
+  "lose": "Pull back to the yard, Captain. Kerrow waits another night."
+ },
+ "result": {
+  "win": "The Kerrow Locks are taken in {rounds} rounds.",
+  "timeout": "Dawn came with the Directorate still on the locks.",
+  "wiped": "Every Lantern walker is down."
+ },
+ "legend": {
+  ".": [
+   "concrete",
+   0
+  ],
+  ",": [
+   "mud",
+   0
+  ],
+  "%": [
+   "rubble",
+   0
+  ],
+  "~": [
+   "water",
+   0
+  ],
+  "Q": [
+   "concrete",
+   1
+  ],
+  "q": [
+   "concrete",
+   0
+  ],
+  "D": [
+   "water",
+   0
+  ],
+  "b": [
+   "concrete",
+   0
+  ],
+  "w": [
+   "rubble",
+   0
+  ],
+  "G": [
+   "concrete",
+   0,
+   "container"
+  ],
+  "X": [
+   "concrete",
+   1,
+   "barrier"
+  ],
+  "L": [
+   "concrete",
+   1,
+   "barrier"
+  ],
+  "K": [
+   "concrete",
+   0,
+   "crane"
+  ],
+  "H": [
+   "concrete",
+   0,
+   "shed"
+  ],
+  "C": [
+   "concrete",
+   0,
+   "container"
+  ],
+  "B": [
+   "concrete",
+   0,
+   "barrier"
+  ],
+  "l": [
+   "concrete",
+   0,
+   "barrier"
+  ]
+ },
+ "map": [
+  "HH..CC....HH....",
+  "HH..CC....HH..,,",
+  "........,,......",
+  "......B......C..",
+  "..CC.....B...C..",
+  "...............B",
+  "QQQQQQQ...K.l...",
+  "QLQQXQQQ.qqqqqqq",
+  "DDDbDDDDGDDDDDwD",
+  "DDDbDDDDGDDDDDwD",
+  "QQXQQQQQ.qqqq%qq",
+  "QQQQQL......l...",
+  ".......BB.....B.",
+  "..CC..%.........",
+  "..CC.,.....CC...",
+  ",,.........CC...",
+  ".........,,...HH",
+  "..............HH"
+ ],
+ "units": [
+  {
+   "id": "marlow",
+   "pilot": "marlow",
+   "side": "player",
+   "x": 6,
+   "y": 16,
+   "facing": "N",
+   "build": {
+    "body": "body-lantern-m",
+    "armL": "arm-lantern-m",
+    "armR": "arm-lantern-m",
+    "legs": "legs-lantern-m",
+    "pack": "pack-none",
+    "wL": "w-carbine",
+    "wR": "w-autocannon"
+   }
+  },
+  {
+   "id": "okonjo",
+   "pilot": "okonjo",
+   "side": "player",
+   "x": 8,
+   "y": 16,
+   "facing": "N",
+   "build": {
+    "body": "body-lantern-h",
+    "armL": "arm-lantern-h",
+    "armR": "arm-lantern-h",
+    "legs": "legs-lantern-h",
+    "pack": "pack-mortar",
+    "wL": "w-shield",
+    "wR": "w-autocannon"
+   }
+  },
+  {
+   "id": "varga",
+   "pilot": "varga",
+   "side": "player",
+   "x": 2,
+   "y": 16,
+   "facing": "N",
+   "build": {
+    "body": "body-lantern-l",
+    "armL": "arm-lantern-l",
+    "armR": "arm-lantern-l",
+    "legs": "legs-lantern-l",
+    "pack": "pack-sensor",
+    "wL": null,
+    "wR": "w-carbine"
+   }
+  },
+  {
+   "id": "haldane",
+   "pilot": "haldane",
+   "side": "player",
+   "x": 7,
+   "y": 17,
+   "facing": "N",
+   "build": {
+    "body": "body-lantern-m",
+    "armL": "arm-lantern-m",
+    "armR": "arm-lantern-m",
+    "legs": "legs-lantern-m",
+    "pack": "pack-repair",
+    "wL": null,
+    "wR": "w-carbine"
+   }
+  },
+  {
+   "id": "hallen",
+   "pilot": "hallen",
+   "side": "hostile",
+   "x": 12,
+   "y": 3,
+   "facing": "S",
+   "role": "commander",
+   "build": {
+    "body": "body-dir-cmd",
+    "armL": "arm-dir-cmd",
+    "armR": "arm-dir-cmd",
+    "legs": "legs-dir-cmd",
+    "pack": "pack-missile",
+    "wL": "w-ramfist",
+    "wR": "w-rifle"
+   }
+  },
+  {
+   "id": "dir-1",
+   "pilot": "dir-1",
+   "side": "hostile",
+   "x": 7,
+   "y": 2,
+   "facing": "S",
+   "role": "mortar",
+   "build": {
+    "body": "body-dir-wedge",
+    "armL": "arm-dir",
+    "armR": "arm-dir",
+    "legs": "legs-dir",
+    "pack": "pack-mortar",
+    "wL": null,
+    "wR": "w-carbine"
+   }
+  },
+  {
+   "id": "dir-2",
+   "pilot": "dir-2",
+   "side": "hostile",
+   "x": 3,
+   "y": 6,
+   "facing": "S",
+   "role": "rifle",
+   "build": {
+    "body": "body-dir-wedge",
+    "armL": "arm-dir",
+    "armR": "arm-dir",
+    "legs": "legs-dir",
+    "pack": "pack-none",
+    "wL": null,
+    "wR": "w-rifle"
+   }
+  },
+  {
+   "id": "dir-3",
+   "pilot": "dir-3",
+   "side": "hostile",
+   "x": 10,
+   "y": 4,
+   "facing": "S",
+   "role": "sensor",
+   "build": {
+    "body": "body-dir-wedge",
+    "armL": "arm-dir",
+    "armR": "arm-dir",
+    "legs": "legs-dir",
+    "pack": "pack-sensor",
+    "wL": null,
+    "wR": "w-carbine"
+   }
+  },
+  {
+   "id": "dir-4",
+   "pilot": "dir-4",
+   "side": "hostile",
+   "x": 11,
+   "y": 7,
+   "facing": "S",
+   "role": "ram",
+   "build": {
+    "body": "body-dir-wedge",
+    "armL": "arm-dir",
+    "armR": "arm-dir",
+    "legs": "legs-dir",
+    "pack": "pack-none",
+    "wL": "w-ramfist",
+    "wR": "w-carbine"
+   }
+  },
+  {
+   "id": "dir-5",
+   "pilot": "dir-5",
+   "side": "hostile",
+   "x": 14,
+   "y": 6,
+   "facing": "S",
+   "role": "ram",
+   "build": {
+    "body": "body-dir-wedge",
+    "armL": "arm-dir",
+    "armR": "arm-dir",
+    "legs": "legs-dir",
+    "pack": "pack-none",
+    "wL": "w-ramfist",
+    "wR": "w-carbine"
+   }
+  }
+ ]
+}

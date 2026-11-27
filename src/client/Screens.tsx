@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { MISSIONS } from '../engine/data';
-import { itemName } from '../engine/campaign';
+import { campaignDone, currentMission, itemName } from '../engine/campaign';
 import { audio } from './audio';
 import { preloadTextures } from './board/textures';
 import { Portrait } from './Hud';
@@ -38,37 +38,12 @@ export function Title() {
 }
 
 // ---------------------------------------------------------------- Briefing
-interface Line { id: string; who: string; name: string; text: string; show: 'region' | 'yard' }
-const LINES: Line[] = [
-  { id: 'brief-1', who: 'aske', name: 'Corin Aske, Basin Concord', text: 'Captain. The Directorate pushed a recon group into Marrow Yard before dawn. Five walkers, dug in among the freight lines.', show: 'region' },
-  { id: 'brief-2', who: 'aske', name: 'Corin Aske, Basin Concord', text: 'That yard is the only rail link into Kerrow. The Concord wants it open before the supply train arrives at noon.', show: 'region' },
-  { id: 'brief-3', who: 'aske', name: 'Corin Aske, Basin Concord', text: 'Clear every Directorate walker from the yard. Their commander will be sitting by the grain silos.', show: 'yard' },
-  { id: 'brief-4', who: 'marlow', name: 'Capt. Ines Marlow, Grey Lantern Company', text: 'Understood. Varga takes the left track. Okonjo and Haldane come up the middle with me.', show: 'yard' },
-  { id: 'brief-5', who: 'aske', name: 'Corin Aske, Basin Concord', text: 'One more thing. Whatever you strip off their machines is yours. Salvage rights are in the contract.', show: 'yard' },
-  { id: 'brief-6', who: 'marlow', name: 'Capt. Ines Marlow, Grey Lantern Company', text: "Then let's go earn it. Lanterns, move out.", show: 'yard' },
-];
-
-/** The yard drawn from the mission map in grease pencil on acetate. */
-function YardPlan() {
-  const m = MISSIONS['marrow-yard']!;
-  const S = 26;
-  const cells: React.ReactElement[] = [];
-  m.map.forEach((row, y) => [...row].forEach((ch, x) => {
-    const l = m.legend[ch]!;
-    const obj = l[2];
-    const fill = obj === 'silo' ? '#d9d4c4' : obj === 'shed' ? '#b98a6a' : obj === 'container' ? '#8fa2b2' : obj === 'wagon' ? '#a0704c' : obj === 'barrier' ? '#cfcac0' : obj === 'crane' ? '#e07a2a' : l[0] === 'water' ? '#4d6a7a' : l[0] === 'ballast' ? '#5c5650' : l[1] > 0 ? '#7d7a74' : l[0] === 'mud' ? '#4c4236' : '#625f5a';
-    cells.push(<rect key={`${x},${y}`} x={x * S} y={y * S} width={S - 1} height={S - 1} fill={fill} opacity={obj ? 0.95 : 0.55} rx={obj === 'silo' ? S / 2 : 2} />);
-  }));
-  const hostiles = m.units.filter((u) => u.side === 'hostile');
-  const players = m.units.filter((u) => u.side === 'player');
+/** Marrow Yard's grease-pencil notes: the plan of attack, then the combat v2 notes (wagons, flank, reserve). */
+function MarrowNotes({ S }: { S: number }) {
   return (
-    <svg className="yard-plan" viewBox={`-10 -10 ${14 * S + 20} ${18 * S + 20}`} data-testid="yard-plan">
-      {cells}
-      {hostiles.map((u) => <g key={u.id}><circle cx={u.x * S + S / 2} cy={u.y * S + S / 2} r={S * 0.62} fill="none" stroke="#e0352a" strokeWidth={3.5} strokeDasharray="5 3" /><path d={`M${u.x * S + 5} ${u.y * S + 5} L${u.x * S + S - 5} ${u.y * S + S - 5} M${u.x * S + S - 5} ${u.y * S + 5} L${u.x * S + 5} ${u.y * S + S - 5}`} stroke="#e0352a" strokeWidth={3} /></g>)}
-      {players.map((u) => <rect key={u.id} x={u.x * S + 4} y={u.y * S + 4} width={S - 8} height={S - 8} fill="#ff8a2a" stroke="#1b1f1c" strokeWidth={2} />)}
+    <>
       <path d={`M${3.5 * S} ${15.5 * S} C ${3.4 * S} ${11 * S}, ${3.2 * S} ${8 * S}, ${3.6 * S} ${4.5 * S}`} stroke="#ff8a2a" strokeWidth={4} fill="none" strokeLinecap="round" markerEnd="url(#arr)" />
       <path d={`M${7.5 * S} ${15.3 * S} C ${7.8 * S} ${12 * S}, ${6.2 * S} ${9 * S}, ${6.6 * S} ${5.2 * S}`} stroke="#ff8a2a" strokeWidth={4} fill="none" strokeLinecap="round" markerEnd="url(#arr)" />
-      <defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff8a2a" /></marker></defs>
       <text x={2.2 * S} y={1.3 * S} className="pencil" fill="#e9e4d6">← silos: CMD?</text>
       <text x={1.2 * S} y={13 * S} className="pencil" fill="#ff8a2a" transform={`rotate(-80 ${1.2 * S} ${13 * S})`}>VARGA</text>
       <text x={8.2 * S} y={14.4 * S} className="pencil" fill="#ff8a2a">MARLOW, OKONJO,</text><text x={8.2 * S} y={15.2 * S} className="pencil" fill="#ff8a2a">HALDANE</text>
@@ -79,12 +54,57 @@ function YardPlan() {
       <path d={`M${12.2 * S} ${12.6 * S} C ${12.6 * S} ${10.6 * S}, ${11.6 * S} ${9.2 * S}, ${10.4 * S} ${8.6 * S}`} stroke="#ff8a2a" strokeWidth={3} strokeDasharray="6 4" fill="none" markerEnd="url(#arr)" />
       <text x={13.9 * S} y={13.5 * S} className="pencil" fill="#ff8a2a" textAnchor="end" data-testid="note-flank">flank +10, rear +20</text>
       <text x={0.3 * S} y={17.6 * S} className="pencil" fill="#ff8a2a" data-testid="note-reserve">keep 1 back: return fire</text>
-      <defs><marker id="arrw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#e9e4d6" /></marker></defs>
+    </>
+  );
+}
+
+/** The Kerrow Locks' notes: the bridge, the gate and its bonus, the lamps, the weir. */
+function KerrowNotes({ S }: { S: number }) {
+  return (
+    <>
+      <path d={`M${2.5 * S} ${15.5 * S} C ${2.6 * S} ${13 * S}, ${3.4 * S} ${11.5 * S}, ${3.5 * S} ${7.2 * S}`} stroke="#ff8a2a" strokeWidth={4} fill="none" strokeLinecap="round" markerEnd="url(#arr)" />
+      <text x={0.2 * S} y={12.9 * S} className="pencil" fill="#ff8a2a">VARGA: bridge</text>
+      <path d={`M${7.5 * S} ${15.3 * S} C ${10 * S} ${14 * S}, ${13.6 * S} ${12.5 * S}, ${14.5 * S} ${7.4 * S}`} stroke="#ff8a2a" strokeWidth={4} fill="none" strokeLinecap="round" markerEnd="url(#arr)" />
+      <text x={8.6 * S} y={15.9 * S} className="pencil" fill="#ff8a2a">MARLOW, OKONJO, HALDANE: weir</text>
+      <text x={8.5 * S} y={9.3 * S} className="pencil" fill="#e9e4d6" data-testid="note-gate">← gate: +1,500 if it stands</text>
+      <text x={9.2 * S} y={6.5 * S} className="pencil" fill="#e9e4d6">low quay floods if the gate goes</text>
+      <text x={0.2 * S} y={5.6 * S} className="pencil" fill="#ffd27a">lamps light you up: shoot them out</text>
+      <text x={4.3 * S} y={10.9 * S} className="pencil" fill="#e9e4d6">winch swings the bridge</text>
+    </>
+  );
+}
+
+/** The yard drawn from the mission map in grease pencil on acetate. */
+function YardPlan({ id }: { id: string }) {
+  const m = MISSIONS[id]!;
+  const S = 26;
+  const W = m.map[0]!.length, H = m.map.length;
+  const cells: React.ReactElement[] = [];
+  m.map.forEach((row, y) => [...row].forEach((ch, x) => {
+    const l = m.legend[ch]!;
+    const obj = l[2];
+    const t = l[0] as string;
+    const fill = obj === 'silo' ? '#d9d4c4' : obj === 'shed' ? '#b98a6a' : obj === 'container' ? '#8fa2b2' : obj === 'wagon' ? '#a0704c' : obj === 'barrier' ? '#cfcac0' : obj === 'crane' ? '#e07a2a' : String(obj) === 'gate' ? '#a0704c' : String(obj) === 'lamp' ? '#ffd27a' : String(obj) === 'winch' ? '#e07a2a' : t === 'deep' ? '#2f4654' : t === 'water' ? '#4d6a7a' : t === 'deck' ? '#8a8378' : t === 'ballast' ? '#5c5650' : l[1] > 0 ? '#7d7a74' : t === 'mud' ? '#4c4236' : '#625f5a';
+    cells.push(<rect key={`${x},${y}`} x={x * S} y={y * S} width={S - 1} height={S - 1} fill={fill} opacity={obj ? 0.95 : 0.55} rx={obj === 'silo' ? S / 2 : 2} />);
+  }));
+  const hostiles = m.units.filter((u) => u.side === 'hostile');
+  const players = m.units.filter((u) => u.side === 'player');
+  return (
+    <svg className="yard-plan" viewBox={`-10 -10 ${W * S + 20} ${H * S + 20}`} data-testid="yard-plan">
+      {cells}
+      {hostiles.map((u) => <g key={u.id}><circle cx={u.x * S + S / 2} cy={u.y * S + S / 2} r={S * 0.62} fill="none" stroke="#e0352a" strokeWidth={3.5} strokeDasharray="5 3" /><path d={`M${u.x * S + 5} ${u.y * S + 5} L${u.x * S + S - 5} ${u.y * S + S - 5} M${u.x * S + S - 5} ${u.y * S + 5} L${u.x * S + 5} ${u.y * S + S - 5}`} stroke="#e0352a" strokeWidth={3} /></g>)}
+      {players.map((u) => <rect key={u.id} x={u.x * S + 4} y={u.y * S + 4} width={S - 8} height={S - 8} fill="#ff8a2a" stroke="#1b1f1c" strokeWidth={2} />)}
+      {id === 'marrow-yard' && <MarrowNotes S={S} />}
+      {id === 'kerrow-locks' && <KerrowNotes S={S} />}
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff8a2a" /></marker><marker id="arrw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#e9e4d6" /></marker></defs>
     </svg>
   );
 }
 
 export function Briefing() {
+  const campaign = useGame((g) => g.campaign);
+  const m = MISSIONS[currentMission(campaign)]!;
+  const LINES = m.briefing;
   const [i, setI] = useState(0);
   const [loading, setLoading] = useState<string | null>(null);
   const token = useRef(0);
@@ -94,33 +114,35 @@ export function Briefing() {
   useEffect(() => {
     if (atEnd) return;
     const my = ++token.current;
+    // Lines without a recorded voice (contract 2, until the EVILAEGIS recast) wait for Next (PLAN Q21).
     audio.voice(line.id).then(() => { if (token.current === my) setTimeout(() => { if (token.current === my) setI((k) => k + 1); }, 650); }).catch(() => {});
     return () => { audio.stopVoice(); };
   }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
   const deploy = async () => {
     audio.stopVoice();
-    setLoading('Loading the yard 0/11');
-    await preloadTextures((d, t) => setLoading(`Loading the yard ${d}/${t}`));
+    setLoading('Loading the field 0/11');
+    await preloadTextures((d, t) => setLoading(`Loading the field ${d}/${t}`));
     audio.music('battle', 1500); audio.loop('rain-loop', 1500);
     useGame.getState().startBattle();
   };
   return (
     <div className="screen briefing" data-testid="briefing">
       <div className={`brief-map ${line.show}`}>
-        {line.show === 'region' ? <img src="art/region-map.jpg" alt="" draggable={false} /> : <YardPlan />}
+        {line.show === 'region' ? <img src="art/region-map.jpg" alt="" draggable={false} /> : <YardPlan id={m.id} />}
         <div className="acetate" />
-        <div className="map-label">{line.show === 'region' ? 'VELL BASIN · KERROW RAIL LINK' : 'MARROW YARD · CONTRACT 1'}</div>
+        <div className="map-label">{line.show === 'region' ? m.region : m.label}</div>
       </div>
       <div className="brief-side">
         <div className="contract">
-          <div className="k">CONTRACT 1</div>
-          <h2>Marrow Yard</h2>
-          <p>{MISSIONS['marrow-yard']!.brief}</p>
+          <div className="k">CONTRACT {m.contract}</div>
+          <h2>{m.name}</h2>
+          <p>{m.brief}</p>
           <ul>
             <li>Win: every Directorate walker destroyed.</li>
-            <li>Lose: every Lantern walker down, or round {MISSIONS['marrow-yard']!.roundLimit} ends.</li>
-            <li>Fee {MISSIONS['marrow-yard']!.fee.toLocaleString()} cr · {MISSIONS['marrow-yard']!.bounty} cr a kill · bonus {MISSIONS['marrow-yard']!.bonus.toLocaleString()} cr by round {MISSIONS['marrow-yard']!.bonusRound}.</li>
+            <li>Lose: every Lantern walker down, or round {m.roundLimit} ends.</li>
+            <li>Fee {m.fee.toLocaleString()} cr · {m.bounty} cr a kill · bonus {m.bonus.toLocaleString()} cr by round {m.bonusRound}.{m.gateBonus ? ` Gate bonus ${m.gateBonus.toLocaleString()} cr if the lock gate stands.` : ''}</li>
             <li>Salvage: limbs and weapons that survive a kill are yours.</li>
+            {m.night && <li>Night: you see 5 tiles, lamps light the quays, and the Directorate only sees what its walkers can.</li>}
           </ul>
         </div>
         {!atEnd ? (
@@ -128,7 +150,7 @@ export function Briefing() {
             <Portrait id={line.who} />
             <div><div className="who">{line.name}</div><p className="line">“{line.text}”</p></div>
           </div>
-        ) : <div className="speaker done"><p className="line">The Lanterns roll out of the shed into the rain.</p></div>}
+        ) : <div className="speaker done"><p className="line">{m.rollOut}</p></div>}
         <div className="brief-buttons">
           {!atEnd && <button onClick={() => { audio.play('ui-tick'); audio.stopVoice(); setI(i + 1); }}>Next</button>}
           {!atEnd && <button className="ghost" data-testid="skip-brief" onClick={() => { audio.stopVoice(); setI(LINES.length); }}>Skip briefing</button>}
@@ -145,24 +167,25 @@ export function Debrief() {
   const b = useGame((g) => g.live);
   const r = b?.result;
   useEffect(() => { if (r) void audio.voice(r.winner === 'player' ? 'debrief-win' : 'debrief-lose').catch(() => {}); audio.music('hangar', 2000); audio.loop(null); return () => audio.stopVoice(); }, [r]);
-  if (!r) return <Hangar />;
+  if (!r || !b) return <Hangar />;
+  const m = MISSIONS[b.mission]!;
   const win = r.winner === 'player';
   const grouped = new Map<string, number>();
   for (const s of r.salvage) { const k = `${s.kind}:${s.id}`; grouped.set(k, (grouped.get(k) ?? 0) + 1); }
-  const total = r.credits.fee + r.credits.bonus + r.credits.bounty;
+  const total = r.credits.fee + r.credits.bonus + r.credits.bounty + (r.credits.gate ?? 0);
   return (
     <div className="screen debrief" style={{ backgroundImage: `url(art/${win ? 'debrief' : 'defeat'}.jpg)` }} data-testid="debrief">
       <div className="sheet">
-        <div className="k">DEBRIEF · MARROW YARD</div>
+        <div className="k">DEBRIEF · {m.name.toUpperCase()}</div>
         <h2>{win ? 'Contract fulfilled' : 'Contract withdrawn'}</h2>
-        <div className="speaker"><Portrait id="aske" /><p className="line">“{win ? 'The yard is ours, and the train comes through at noon. Good work, Captain. Your salvage is on the flatbeds.' : "Pull back, Captain. We'll find another way into Kerrow."}”</p></div>
+        <div className="speaker"><Portrait id="aske" /><p className="line">“{win ? m.debrief.win : m.debrief.lose}”</p></div>
         <table className="tally"><tbody>
           <tr><td>Rounds</td><td>{r.rounds}</td></tr>
           <tr><td>Directorate walkers destroyed</td><td>{r.lost.hostile}</td></tr>
           <tr><td>Lantern walkers lost (pilots ejected)</td><td>{r.lost.player}</td></tr>
-          {win && <><tr><td>Contract fee</td><td>{r.credits.fee.toLocaleString()} cr</td></tr><tr><td>Kill bounty</td><td>{r.credits.bounty.toLocaleString()} cr</td></tr><tr><td>Speed bonus</td><td>{r.credits.bonus ? `${r.credits.bonus.toLocaleString()} cr` : 'missed'}</td></tr><tr className="sum"><td>Paid</td><td>{total.toLocaleString()} cr</td></tr></>}
+          {win && <><tr><td>Contract fee</td><td>{r.credits.fee.toLocaleString()} cr</td></tr><tr><td>Kill bounty</td><td>{r.credits.bounty.toLocaleString()} cr</td></tr><tr><td>Speed bonus</td><td>{r.credits.bonus ? `${r.credits.bonus.toLocaleString()} cr` : 'missed'}</td></tr>{m.gateBonus ? <tr><td>Gate bonus</td><td>{r.credits.gate ? `${r.credits.gate.toLocaleString()} cr` : 'the gate is down'}</td></tr> : null}<tr className="sum"><td>Paid</td><td>{total.toLocaleString()} cr</td></tr></>}
         </tbody></table>
-        {win && <><div className="k">SALVAGE ON THE FLATBEDS</div><ul className="salvage">{[...grouped.entries()].map(([k, n]) => { const [kind, id] = k.split(':') as ['arm', string]; return <li key={k}><b>{n}×</b> {itemName(kind, id)}</li>; })}</ul></>}
+        {win && <><div className="k">SALVAGE</div><ul className="salvage">{[...grouped.entries()].map(([k, n]) => { const [kind, id] = k.split(':') as ['arm', string]; return <li key={k}><b>{n}×</b> {itemName(kind, id)}</li>; })}</ul></>}
         <div className="brief-buttons">
           {win ? <button className="primary" data-testid="to-hangar" onClick={() => { audio.play('salvage'); useGame.getState().setScreen('hangar'); }}>To the hangar ({c.credits.toLocaleString()} cr)</button>
             : <><button className="primary" data-testid="retry" onClick={() => { audio.music('battle', 1200); audio.loop('rain-loop', 1200); useGame.getState().retry(); }}>Retry the contract</button><button className="ghost" onClick={() => useGame.getState().setScreen('title')}>Title</button></>}
@@ -172,21 +195,42 @@ export function Debrief() {
   );
 }
 
-// ---------------------------------------------------------------- Next contract (stub)
+// ---------------------------------------------------------------- The next contract on offer
 export function NextContract() {
+  const c = useGame((g) => g.campaign);
+  if (campaignDone(c)) {
+    return (
+      <div className="screen briefing" data-testid="next">
+        <div className="brief-map region"><img src="art/region-map.jpg" alt="" draggable={false} /><div className="acetate" /><div className="map-label">VELL BASIN</div></div>
+        <div className="brief-side">
+          <div className="contract">
+            <div className="k">THE BASIN CONCORD</div>
+            <h2>Every contract is fulfilled</h2>
+            <p>Marrow Yard and the Kerrow Locks are in Concord hands. This build ends here; your company, credits and salvage are saved for the contracts to come.</p>
+            <ul className="hint">{c.log.map((l, n) => <li key={n}>{l}</li>)}</ul>
+          </div>
+          <div className="brief-buttons">
+            <button className="primary" onClick={() => useGame.getState().setScreen('hangar')}>Back to the hangar</button>
+            <button className="ghost" onClick={() => useGame.getState().setScreen('title')}>Title</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const m = MISSIONS[currentMission(c)]!;
   return (
     <div className="screen briefing" data-testid="next">
-      <div className="brief-map region"><img src="art/region-map.jpg" alt="" draggable={false} /><div className="acetate" /><div className="map-label">VELL BASIN · THE KERROW LOCKS</div></div>
+      <div className="brief-map region"><img src="art/region-map.jpg" alt="" draggable={false} /><div className="acetate" /><div className="map-label">{m.region}</div></div>
       <div className="brief-side">
         <div className="contract">
-          <div className="k">CONTRACT 2</div>
-          <h2>The Kerrow Locks</h2>
-          <p>The Directorate holds the canal locks below Kerrow. Night, fog, narrow quays and a lock gate that can be blown.</p>
-          <p className="hint">This build ends here: contract 2 is the next level to build on this engine. Your company, credits and salvage are saved.</p>
+          <div className="k">CONTRACT {m.contract} ON OFFER</div>
+          <h2>{m.name}</h2>
+          <p>{m.brief}</p>
+          <p className="hint">Fee {m.fee.toLocaleString()} cr. Your company, credits and salvage carry over; walkers keep the damage you have not repaired.</p>
         </div>
         <div className="brief-buttons">
-          <button className="primary" onClick={() => useGame.getState().setScreen('hangar')}>Back to the hangar</button>
-          <button className="ghost" onClick={() => useGame.getState().setScreen('title')}>Title</button>
+          <button className="primary" data-testid="to-briefing" onClick={() => { audio.play('confirm'); useGame.getState().setScreen('briefing'); }}>To the briefing</button>
+          <button className="ghost" onClick={() => useGame.getState().setScreen('hangar')}>Back to the hangar</button>
         </div>
       </div>
     </div>

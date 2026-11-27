@@ -5,7 +5,7 @@ import { next, seedRng } from '../src/engine/rng';
 import type { Action } from '../src/engine/types';
 let bad = 0, steps = 0;
 for (let seed = 1; seed <= 60; seed++) {
-  let s = newBattle('marrow-yard', seed);
+  let s = newBattle(seed % 2 ? 'marrow-yard' : 'kerrow-locks', seed);
   const r = seedRng(seed * 7919);
   for (let i = 0; i < 400 && !s.result; i++) {
     const legal = legalActions(s);

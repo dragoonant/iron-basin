@@ -24,8 +24,8 @@ export function invariants(s: BattleState): string[] {
 
 export interface RunResult { state: BattleState; actions: Action[]; steps: number; violations: string[] }
 
-export function runBattle(seed: number, player: Difficulty, hostile: Difficulty, check = true, maxSteps = 4000): RunResult {
-  let s = newBattle('marrow-yard', seed);
+export function runBattle(seed: number, player: Difficulty, hostile: Difficulty, check = true, maxSteps = 4000, mission = 'marrow-yard'): RunResult {
+  let s = newBattle(mission, seed);
   const actions: Action[] = [];
   const violations: string[] = [];
   let steps = 0;
@@ -42,8 +42,8 @@ export function runBattle(seed: number, player: Difficulty, hostile: Difficulty,
   return { state: s, actions, steps, violations };
 }
 
-export function replay(seed: number, actions: Action[]): string {
-  let s = newBattle('marrow-yard', seed);
+export function replay(seed: number, actions: Action[], mission = 'marrow-yard'): string {
+  let s = newBattle(mission, seed);
   for (const a of actions) { const r = step(s, a); s = r.events[0]?.type === 'rejected' ? step(s, { type: 'endPhase' }).state : r.state; }
   return hash(s);
 }

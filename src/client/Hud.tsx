@@ -313,7 +313,7 @@ export function Hud() {
   return (
     <div className="hud" data-testid="hud">
       <div className="strip">
-        <span className="op">MARROW YARD</span>
+        <span className="op">{m.name.toUpperCase()}</span>
         <span>ROUND <b data-testid="round">{s.round}</b> / {m.roundLimit}</span>
         <span className={`phase ${s.phase}`} data-testid="phase">{s.phase === 'player' ? 'YOUR PHASE' : 'DIRECTORATE PHASE'}</span>
         <span className="count"><i className="dot p" />{ours} <i className="dot h" />{theirs}</span>
@@ -384,7 +384,7 @@ export function Hud() {
       {done && liveState.result && (
         <div className="result" data-testid="result">
           <div className="rt">{liveState.result.winner === 'player' ? 'CONTRACT FULFILLED' : 'WITHDRAWN'}</div>
-          <div className="rs">{liveState.result.winner === 'player' ? `Marrow Yard is clear in ${liveState.result.rounds} rounds.` : liveState.result.reason === 'timeout' ? 'The supply train could not wait any longer.' : 'Every Lantern walker is down.'}</div>
+          <div className="rs">{liveState.result.winner === 'player' ? m.result.win.replace('{rounds}', String(liveState.result.rounds)) : liveState.result.reason === 'timeout' ? m.result.timeout : m.result.wiped}</div>
           <button data-testid="to-debrief" onClick={() => { audio.play('confirm'); useGame.getState().finishBattle(); }}>Debrief</button>
         </div>
       )}

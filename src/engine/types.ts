@@ -127,7 +127,7 @@ export interface Result {
   rounds: number;
   lost: Record<Side, number>;
   salvage: SalvageItem[];
-  credits: { fee: number; bonus: number; bounty: number };
+  credits: { fee: number; bonus: number; bounty: number; gate?: number };
 }
 
 /** FLD-6: a smoke tile and the side that laid it. */

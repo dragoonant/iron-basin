@@ -39,6 +39,10 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | Q15 | Marrow Yard keeps its map art; data adds rail lines (x 4, x 11) and container stacks; still 4 against 5 |
 | Q16 | The one-pass AI of slices 5b-5e is kept as `simple`, a bench opponent for AI v2 (the v1 AI could not play v2 orders) |
 | Q17 | A v1 save taken mid-battle reopens at the briefing with the company as it stood before that battle (the battle restarts under v2 rules) and says so; other v1 saves open as they are |
+| Q18 | Contract 2 design (`docs/contract-2.md`): a night canal fight with three crossings (swing bridge, weir, a lock gate that floods the low quays when blown) and a gate bonus for leaving it standing |
+| Q19 | Fog of war only in night contracts (Kerrow on); Marrow Yard stays daylight with everything seen (Q3) |
+| Q20 | Pilot levels: XP from battles, kills and won contracts; each level +1 starting nerve; level 2 unlocks a second signature |
+| Q21 | Contract 2 uses no new generated art or voice: the night look is lighting in code; its briefing lines are text until the EVILAEGIS voice recast (D10) |
 | Q11 | Publish the playable as a private claude.ai Artifact (KB rule 28) and on Pages once the repo exists |
 
 ## Milestones
@@ -50,4 +54,4 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
 | M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
 | M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | done 2026-11-26 |
-| M6 | Contract 2, the Kerrow Locks (night, fog, quays, a lock gate to blow, a swing bridge); pilot levels; fog of war | next |
+| M6 | Contract 2, the Kerrow Locks: slices 6a-6e in `docs/contract-2.md` section 5 | in progress (planned 2026-11-27) |

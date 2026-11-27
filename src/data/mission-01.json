@@ -143,6 +143,63 @@
    14
   ]
  ],
+ "contract": 1,
+ "label": "MARROW YARD · CONTRACT 1",
+ "region": "VELL BASIN · KERROW RAIL LINK",
+ "briefing": [
+  {
+   "id": "brief-1",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "Captain. The Directorate pushed a recon group into Marrow Yard before dawn. Five walkers, dug in among the freight lines.",
+   "show": "region"
+  },
+  {
+   "id": "brief-2",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "That yard is the only rail link into Kerrow. The Concord wants it open before the supply train arrives at noon.",
+   "show": "region"
+  },
+  {
+   "id": "brief-3",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "Clear every Directorate walker from the yard. Their commander will be sitting by the grain silos.",
+   "show": "plan"
+  },
+  {
+   "id": "brief-4",
+   "who": "marlow",
+   "name": "Capt. Ines Marlow, Grey Lantern Company",
+   "text": "Understood. Varga takes the left track. Okonjo and Haldane come up the middle with me.",
+   "show": "plan"
+  },
+  {
+   "id": "brief-5",
+   "who": "aske",
+   "name": "Corin Aske, Basin Concord",
+   "text": "One more thing. Whatever you strip off their machines is yours. Salvage rights are in the contract.",
+   "show": "plan"
+  },
+  {
+   "id": "brief-6",
+   "who": "marlow",
+   "name": "Capt. Ines Marlow, Grey Lantern Company",
+   "text": "Then let's go earn it. Lanterns, move out.",
+   "show": "plan"
+  }
+ ],
+ "rollOut": "The Lanterns roll out of the shed into the rain.",
+ "debrief": {
+  "win": "The yard is ours, and the train comes through at noon. Good work, Captain. Your salvage is on the flatbeds.",
+  "lose": "Pull back, Captain. We'll find another way into Kerrow."
+ },
+ "result": {
+  "win": "Marrow Yard is clear in {rounds} rounds.",
+  "timeout": "The supply train could not wait any longer.",
+  "wiped": "Every Lantern walker is down."
+ },
  "units": [
   {
    "id": "marlow",

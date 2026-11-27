@@ -2,7 +2,8 @@
 // presenter advances event by event (separate presented state from live state: KB, Mallet 42k lessons).
 import { create } from 'zustand';
 import { chooseAction } from '../ai';
-import { applyResult, newCampaign, deployFrom, type Campaign } from '../engine/campaign';
+import { applyResult, currentMission, newCampaign, deployFrom, type Campaign } from '../engine/campaign';
+import { MISSIONS } from '../engine/data';
 import { dirTo, dist } from '../engine/grid';
 import { reachable } from '../engine/grid';
 import { canHitAny, dashRange, faceToward, fireBlock, maneuverBlock, modeIn, modes, pivotCost, shuntDir, unitById, walkRange } from '../engine/query';
@@ -112,8 +113,9 @@ export const useGame = create<ClientState>((set, get) => ({
   startBattle: () => {
     const c = get().campaign;
     const seed = (Date.now() % 100000) + 1;
-    const b = newBattle('marrow-yard', seed, deployFrom(c));
-    set({ preBattle: c, live: b, shown: b, seed, actions: [], queue: [], presenting: false, selected: null, target: null, targetObj: null, aim: null, maneuverAim: null, feed: [{ text: 'Marrow Yard. Clear every Directorate walker.', side: 'note' }], screen: 'battle', banner: { text: 'YOUR PHASE', sub: 'ROUND 1', until: get().clock + 1.6 } });
+    const mid = currentMission(c);
+    const b = newBattle(mid, seed, deployFrom(c));
+    set({ preBattle: c, live: b, shown: b, seed, actions: [], queue: [], presenting: false, selected: null, target: null, targetObj: null, aim: null, maneuverAim: null, feed: [{ text: `${MISSIONS[mid]!.name}. Clear every Directorate walker.`, side: 'note' }], screen: 'battle', banner: { text: 'YOUR PHASE', sub: 'ROUND 1', until: get().clock + 1.6 } });
     audio.play('turn-player');
     get().save();
   },

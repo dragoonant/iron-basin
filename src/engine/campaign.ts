@@ -1,5 +1,5 @@
 // Between battles: the roster, the parts inventory and credits (SAL-1, HGR-1..4). Pure functions over plain JSON.
-import { arm, body, legs, MISSIONS, pack, RULES, weapon } from './data';
+import { arm, body, legs, MISSION_ORDER, MISSIONS, pack, RULES, weapon } from './data';
 import { maneuversOf, maxHp, modes, stats, weapons } from './query';
 import { PARTS } from './data';
 import { makeUnit, type Deploy } from './step';
@@ -10,7 +10,11 @@ export interface Item { uid: string; kind: ItemKind; id: string; hp: number; pai
 export interface RosterWalker { pilot: string; build: Build; hp: Record<PartSlot, number>; paint: Record<PaintSlot, Paint> }
 export interface Campaign { v: 1; credits: number; roster: RosterWalker[]; inventory: Item[]; mission: number; nextUid: number; log: string[] }
 
-export const MISSION_ORDER = ['marrow-yard'];
+export { MISSION_ORDER };
+/** The contract the campaign plays next (the last one again once the list runs out). */
+export const currentMission = (c: Campaign): string => MISSION_ORDER[Math.min(c.mission, MISSION_ORDER.length - 1)]!;
+/** Has the company played every contract there is? */
+export const campaignDone = (c: Campaign): boolean => c.mission >= MISSION_ORDER.length;
 
 export function newCampaign(): Campaign {
   const m = MISSIONS['marrow-yard']!;
@@ -26,7 +30,7 @@ export function newCampaign(): Campaign {
 }
 
 export function deployFrom(c: Campaign): Deploy[] {
-  const m = MISSIONS[MISSION_ORDER[Math.min(c.mission, MISSION_ORDER.length - 1)]!]!;
+  const m = MISSIONS[currentMission(c)]!;
   const starts = m.units.filter((u) => u.side === 'player');
   return c.roster.filter((r) => r.hp.body > 0).map((r, i) => {
     const st = starts.find((u) => u.pilot === r.pilot) ?? starts[i % starts.length]!;

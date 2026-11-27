@@ -1,7 +1,8 @@
 // SAV-1, SAV-2 (KB rule 22): one versioned envelope under localStorage['ib-save']; the snapshot is what reopens.
 // v2 (combat v2, spec 15): a v1 save taken mid-battle reopens at the briefing with the company as it stood before that
 // battle, because its battle cannot be replayed under the new rules (PLAN Q17); other v1 saves open as they are.
-import type { Campaign } from '../engine/campaign';
+import { currentMission, type Campaign } from '../engine/campaign';
+import { MISSIONS } from '../engine/data';
 import type { Action, BattleState } from '../engine/types';
 
 export const SAVE_KEY = 'ib-save';
@@ -50,8 +51,9 @@ export function describe(env: Envelope): string {
   if (env.screen === 'battle' && env.battle) {
     const b = env.battle.snapshot;
     const ours = b.units.filter((u) => u.side === 'player' && u.alive).length, theirs = b.units.filter((u) => u.side === 'hostile' && u.alive).length;
-    return `Marrow Yard, round ${b.round}, ${b.phase === 'player' ? 'your phase' : 'Directorate phase'}: ${ours} Lanterns vs ${theirs} walkers. Saved ${when}.`;
+    return `${MISSIONS[b.mission]?.name ?? 'Battle'}, round ${b.round}, ${b.phase === 'player' ? 'your phase' : 'Directorate phase'}: ${ours} Lanterns vs ${theirs} walkers. Saved ${when}.`;
   }
-  const label = { briefing: 'Briefing, Marrow Yard', debrief: 'Debrief, Marrow Yard', hangar: 'The hangar', battle: 'Battle' }[env.screen];
+  const name = MISSIONS[currentMission(env.campaign)]?.name ?? 'the next contract';
+  const label = { briefing: `Briefing, ${name}`, debrief: 'Debrief', hangar: 'The hangar', battle: 'Battle' }[env.screen];
   return `${label}, ${env.campaign.credits.toLocaleString()} credits. Saved ${when}.${env.note ? ` ${env.note}` : ''}`;
 }

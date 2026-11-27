@@ -2,6 +2,7 @@ import partsJson from '../data/parts.json';
 import pilotsJson from '../data/pilots.json';
 import rulesJson from '../data/rules.json';
 import missionJson from '../data/mission-01.json';
+import mission2Json from '../data/mission-02.json';
 import type { Build, Facing, ObjKind, Side, Terrain, WeaponClass } from './types';
 
 export interface BodyDef { name: string; hp: number; power: number; weight: number; kit: string; size: string; drive: number; maneuvers: string[] }
@@ -33,10 +34,25 @@ export interface ManeuverDef {
 export interface PilotDef { name: string; call: string; skill: number; evade: number; side: Side; nerve: number; signature: string | null }
 export interface ObjDef { hp: number; blocksSight: boolean; cover: boolean; breakable: boolean }
 export interface MissionUnit { id: string; pilot: string; side: Side; x: number; y: number; facing: Facing; role?: string; build: Build }
+/** A briefing line: who speaks, what, and whether the region map or the field plan is up. */
+export interface BriefLine { id: string; who: string; name: string; text: string; show: 'region' | 'plan' }
 export interface MissionDef {
   id: string;
   name: string;
+  /** The contract number shown on the briefing and the debrief. */
+  contract: number;
   brief: string;
+  label: string;
+  region: string;
+  briefing: BriefLine[];
+  rollOut: string;
+  debrief: { win: string; lose: string };
+  /** `{rounds}` is filled in. */
+  result: { win: string; timeout: string; wiped: string };
+  /** Contract 2: paid when every gate tile still stands at the end (LCK). */
+  gateBonus?: number;
+  /** Night: sight is short and the side only sees what it sees (FOG). */
+  night?: boolean;
   roundLimit: number;
   bonusRound: number;
   fee: number;
@@ -91,7 +107,9 @@ export const PARTS = partsJson as unknown as {
 };
 export const PILOTS = pilotsJson as Record<string, PilotDef>;
 export const RULES = rulesJson as unknown as RulesDef;
-export const MISSIONS: Record<string, MissionDef> = { [missionJson.id]: missionJson as unknown as MissionDef };
+export const MISSIONS: Record<string, MissionDef> = Object.fromEntries([missionJson, mission2Json].map((m) => [m.id, m as unknown as MissionDef]));
+/** The campaign's contracts, in order. */
+export const MISSION_ORDER = ['marrow-yard', 'kerrow-locks'];
 
 export const body = (id: string): BodyDef => PARTS.bodies[id] ?? PARTS.bodies['body-lantern-m']!;
 export const arm = (id: string): ArmDef => PARTS.arms[id] ?? PARTS.arms['arm-lantern-m']!;
