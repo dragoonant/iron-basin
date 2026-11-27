@@ -40,7 +40,10 @@ test('a whole contract: battle to debrief to hangar to the next contract', async
     await expect(page.getByTestId('hangar')).toBeVisible();
     await expect(page.getByTestId('credits')).not.toHaveText('1,500 cr');
     await page.click('[data-testid=next-contract]');
-    await expect(page.getByTestId('next')).toBeVisible();
+    await expect(page.getByTestId('next')).toContainText('The Kerrow Locks');
+    await page.click('[data-testid=to-briefing]');
+    await expect(page.getByTestId('briefing')).toContainText('CONTRACT 2');
+    await expect(page.getByTestId('speaker')).toContainText('canal');
   } else {
     await page.click('[data-testid=retry]');
     await expect(page.getByTestId('hud')).toBeVisible();

@@ -315,6 +315,8 @@ class Director implements AudioDirector {
     this.stopVoice();
     const entry = this.index?.voice[id];
     const ctx = this.ctx;
+    // A line with no take yet (contract 2 until the recast, PLAN Q21) rejects, so a briefing waits for Next.
+    if (this.index && !entry) return Promise.reject(new Error(`no voice take for ${id}`));
     if (!entry || !ctx || !this.busVoice) return Promise.resolve();
     const bus = this.busVoice;
     const seq = ++this.voiceSeq;

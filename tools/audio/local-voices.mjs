@@ -14,6 +14,13 @@ const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
 const cast = JSON.parse(readFileSync('tools/audio/cast.json', 'utf8'));
 const INDEX = 'public/audio/index.json';
 const index = JSON.parse(readFileSync(INDEX, 'utf8'));
+// Briefing lines written after the ElevenLabs pass (contract 2, PLAN Q21) have no take yet: queue them from the
+// mission data, voiced by their speaker's cast. They join index.voice only once the index stage finds their .wav.
+const SPEAKER = { aske: 'AKSE', marlow: 'MARLOW', okonjo: 'OKONJO', varga: 'VARGA', haldane: 'HALDANE', hallen: 'HALLEN' };
+const queued = {};
+for (const f of ['src/data/mission-01.json', 'src/data/mission-02.json']) {
+  for (const l of JSON.parse(readFileSync(f, 'utf8')).briefing ?? []) if (!index.voice[l.id] && SPEAKER[l.who]) queued[l.id] = { speaker: SPEAKER[l.who], text: l.text };
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function job(params) {
@@ -72,7 +79,7 @@ async function castStage() {
 }
 
 async function linesStage() {
-  for (const [id, v] of Object.entries(index.voice)) {
+  for (const [id, v] of Object.entries({ ...index.voice, ...queued })) {
     if (only && only !== id && only !== v.speaker) continue;
     const c = cast[v.speaker];
     if (!c) { console.log('no casting for', v.speaker); continue; }
@@ -87,7 +94,7 @@ async function linesStage() {
 }
 
 function indexStage() {
-  for (const [id, v] of Object.entries(index.voice)) {
+  for (const [id, v] of Object.entries({ ...index.voice, ...queued })) {
     const wav = `audio/voice/${id}.wav`;
     if (!existsSync(`public/${wav}`)) continue;
     const { peak, seconds } = wavInfo(readFileSync(`public/${wav}`));

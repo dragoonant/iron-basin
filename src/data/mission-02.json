@@ -22,7 +22,7 @@
    "id": "kerrow-2",
    "who": "aske",
    "name": "Corin Aske, Basin Concord",
-   "text": "Six walkers this time, and they have a spotter. Expect their missiles to find you.",
+   "text": "Five walkers this time, and they have a spotter. Expect their missiles to find you.",
    "show": "region"
   },
   {
@@ -154,7 +154,7 @@
   "DDDbDDDDGDDDDDwD",
   "DDDbDDDDGDDDDDwD",
   "QQXQQQQQ.qqqq%qq",
-  "QQQQQL......l...",
+  "QQQQQL..........",
   ".......BB.....B.",
   "..CC..%.........",
   "..CC.,.....CC...",
@@ -234,7 +234,7 @@
    "pilot": "marlow",
    "side": "player",
    "x": 6,
-   "y": 16,
+   "y": 14,
    "facing": "N",
    "build": {
     "body": "body-lantern-m",
@@ -251,7 +251,7 @@
    "pilot": "okonjo",
    "side": "player",
    "x": 8,
-   "y": 16,
+   "y": 14,
    "facing": "N",
    "build": {
     "body": "body-lantern-h",
@@ -267,8 +267,8 @@
    "id": "varga",
    "pilot": "varga",
    "side": "player",
-   "x": 2,
-   "y": 16,
+   "x": 1,
+   "y": 14,
    "facing": "N",
    "build": {
     "body": "body-lantern-l",
@@ -285,7 +285,7 @@
    "pilot": "haldane",
    "side": "player",
    "x": 7,
-   "y": 17,
+   "y": 15,
    "facing": "N",
    "build": {
     "body": "body-lantern-m",
@@ -375,24 +375,6 @@
    "side": "hostile",
    "x": 11,
    "y": 7,
-   "facing": "S",
-   "role": "ram",
-   "build": {
-    "body": "body-dir-wedge",
-    "armL": "arm-dir",
-    "armR": "arm-dir",
-    "legs": "legs-dir",
-    "pack": "pack-none",
-    "wL": "w-ramfist",
-    "wR": "w-carbine"
-   }
-  },
-  {
-   "id": "dir-5",
-   "pilot": "dir-5",
-   "side": "hostile",
-   "x": 14,
-   "y": 6,
    "facing": "S",
    "role": "ram",
    "build": {

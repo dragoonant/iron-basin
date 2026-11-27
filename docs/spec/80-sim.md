@@ -113,3 +113,25 @@ determinism (seed 7 replay): ok
 **Orders used (200 battles, before step 11; step 11 moved no share by more than 0.3 points):** walk 42.3%, Double tap 8.4%, Burst 4.8%, Overdrive 4.1%, Ram jab 3.8%, Strike 3.6%, High explosive 3.2%, Shunt 3.0%, Braced shot 3.0%, Kick 2.9%, Dash 2.7%, Shot 2.5%, Cover lane 2.3%, Suppress 2.1%, Patch 2.0%, Snap 1.8%, Bash 1.7%, Brace 1.3%, Salvo 1.1%, Grab 0.7%, Aimed pair 0.6%, Smoke 0.5%, Mark 0.3%, Throw 0.3%, Guard 0.2%, Pivot 0.2%, Shove 0.2%, Drive-through 0.2%, then the once-a-battle signatures and Plant and Tow at 0.1% or less. Every mode and maneuver is now picked except Tagged salvo, which Marrow Yard cannot set up (no sensor on the Directorate side, no missiles on ours).
 
 **Under the 3% bar but kept:** Aimed pair, Smoke, Mark, Throw, Guard, Shove, Drive-through, Grab, Plant, Tow and the signatures are situational by design (a part to call, a screen, a lane, a ledge, a downed ally); each is picked by AI v2 when the situation is there. The bar was meant for options that are never right; none of these is.
+
+## The Kerrow Locks (contract 2, slice 6e), 2026-11-27
+`npm run sim -- --mission kerrow-locks`. Night, fog of war, the canal (spec 20). Both seats AI v2, fresh mission builds: in a campaign the Lanterns arrive with contract 1's salvage and levelled pilots, so these numbers are the hard case.
+
+| Step | Change | AI vs AI player win |
+|---|---|---|
+| 0 | as designed: six Directorate walkers, Lanterns at rows 16-17 (no night yet, 30 battles) | 0% |
+| 1 | night and fog in (6c), 60 battles | 1.7% |
+| 2 | five walkers: the weir ram (dir-5) removed | 17.0% |
+| 3 | Lanterns deploy two rows forward (rows 14-15, behind the south-bank cover) | 25.0% |
+| 4 | the south-east quay lamp (12,11) removed: it lit every walker heading for the weir | 30.0%; **30.5% over 200** |
+| 5 | a two-tile weir (x 13 and 14) | 12.5% over 200, reverted: it let the Directorate's ram come south as easily |
+
+Why: Lanterns died at a median round 4, crossing (20 of 80 losses) or on the north bank (32), spread across all six defenders, who hit 77% of their shots to the Lanterns' 65% (20 battles, before step 2). Six walkers behind a canal with two narrow crossings was too many; the approach under lamps was too long.
+
+| battles | player win | timeouts | median rounds | player walkers lost | hostile lost | salvage per win | violations |
+|---|---|---|---|---|---|---|---|
+| 200 | 30.5% | 0 | 8 | 3.29 | 3.06 | 18.5 | 0 |
+
+Inside the 30-45% band at its hard end, which is where a second contract should sit.
+
+`npm run bench:ai -- --mission kerrow-locks` (fog: each seat plays from its own view): AI v2 beats random **100.0%** and simple **77.5%** (200 battles each); determinism ok. Orders used include Swing 0.2%, Flare and Tagged salvo under 0.05% (both now possible: the Directorate carries the missiles and the spotter). Marrow Yard is untouched (41.5%).

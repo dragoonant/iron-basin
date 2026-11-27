@@ -54,4 +54,4 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | M3 | Art (portraits, map, sky, textures), audio (music, sounds, voices) | done 2026-11-24 (audio not verified by ear) |
 | M4 | Briefing, debrief, hangar; Artifact; KB entry | done 2026-11-24 (KB entry pushed to `3d-game-generation/projects/iron-basin.md`) |
 | M5 | Combat v2 on Marrow Yard: slices 5a-5h in `docs/combat-v2.md` section 9 | done 2026-11-26 |
-| M6 | Contract 2, the Kerrow Locks: slices 6a-6e in `docs/contract-2.md` section 5 | in progress (planned 2026-11-27) |
+| M6 | Contract 2, the Kerrow Locks: slices 6a-6e in `docs/contract-2.md` section 5 | done 2026-11-27 |

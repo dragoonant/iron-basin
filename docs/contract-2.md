@@ -4,7 +4,7 @@
 
 **One line:** *a night fight across a canal: three ways over (a swing bridge, a weir, and a lock gate you can blow), lamps you can shoot out, and a bonus for leaving the gate standing.*
 
-Status: **plan** (2026-11-27). Rules go into `docs/spec/20-kerrow.md` slice by slice, with tests named by id and a `sim` record in `80-sim.md`.
+Status: **M6 done** (2026-11-27): slices 6a-6e. Balance changes from section 3 are in `80-sim.md`: five Directorate walkers, the Lanterns deploy at rows 14-15, one south-quay lamp fewer. Rules go into `docs/spec/20-kerrow.md` slice by slice, with tests named by id and a `sim` record in `80-sim.md`.
 
 ## 1. The field
 - 16 × 18 tiles. The canal runs west to east across rows 8 and 9: **deep water**, which walkers cannot enter and which does not block sight.
@@ -25,7 +25,7 @@ Status: **plan** (2026-11-27). Rules go into `docs/spec/20-kerrow.md` slice by s
 ## 3. The contract
 - Win: every Directorate walker destroyed. Lose: every Lantern down, or round 18 ends.
 - Fee 3,600 cr, 600 a kill, bonus 1,200 by round 11, and a **gate bonus** of 1,500 if both gate tiles still stand at the end. Blowing the gate floods their east flank, but it costs the bonus.
-- The Directorate brings six walkers: Hallen again, a sensor walker (so Tagged salvo comes into play against you), a mortar, two rams and a rifle.
+- The Directorate brings five walkers: Hallen again, a sensor walker (so Tagged salvo comes into play against you), a mortar, a ram and a rifle (balance, `80-sim.md`).
 
 ## 4. Pilot levels
 - Pilots earn experience: +1 for each battle survived, +2 for each kill, +1 for a won contract. Levels come at 3, 7 and 12 experience.

@@ -114,7 +114,8 @@ describe('night and fog (slice 6c)', () => {
     expect(sees(s, u(s, 'marlow'), { x: 9, y: 10 })).toBe(false);
     place(s, 'varga', 9, 17);
     expect(sees(s, u(s, 'varga'), { x: 9, y: 10 })).toBe(true); // a sensor mast sees to 7
-    expect(sees(s, u(s, 'marlow'), { x: 12, y: 10 })).toBe(true); // under the lamp at 12,11
+    expect(hasLos(s, u(s, 'marlow'), { x: 6, y: 10 })).toBe(true);
+    expect(sees(s, u(s, 'marlow'), { x: 6, y: 10 })).toBe(true); // 9 tiles off, but under the lamp at 5,11
     const day = newBattle('marrow-yard', 1);
     for (const p of [{ x: 13, y: 0 }, { x: 6, y: 2 }, { x: 0, y: 5 }]) expect(sees(day, day.units[0]!, p)).toBe(hasLos(day, day.units[0]!, p)); // daylight: sight is line of sight
   });
@@ -172,7 +173,7 @@ describe('night and fog (slice 6c)', () => {
     const shown = v.units.filter((w) => w.side === 'hostile');
     expect(shown.every((w) => seenBy(s, 'player', w))).toBe(true);
     expect(shown.length).toBeLessThan(s.units.filter((w) => w.side === 'hostile').length);
-    expect(Object.keys(v.intel!.player).length).toBe(6);
+    expect(Object.keys(v.intel!.player).length).toBe(s.units.filter((w) => w.side === 'hostile').length);
     expect(v.intel!.hostile).toEqual({});
     expect(view(newBattle('marrow-yard', 1), 'player').units.length).toBe(9);
   });

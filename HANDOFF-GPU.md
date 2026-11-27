@@ -41,3 +41,6 @@ node tools/audio/local-voices.mjs index
 
 ## Later, the same way (optional)
 Music and sound effects can come from the same studio: ACE-Step for music, about 10 s per 120 s track, and Stable Audio Open for effects. Music was 66% of IRON BASIN's ElevenLabs spend, so contract 2's tracks are the next candidates to generate locally.
+
+## Added 2026-11-27: contract 2's briefing lines
+The six Kerrow Locks lines (`kerrow-1` to `kerrow-6`, in `src/data/mission-02.json` `briefing`) have no take yet and play as text (PLAN Q21). `node tools/audio/local-voices.mjs lines` now queues them from the mission data with their speaker's cast (Aske, Marlow), and `index` adds them to `public/audio/index.json` once their .wav files exist. Nothing else changes in the steps above.
