@@ -65,9 +65,11 @@ function KerrowNotes({ S }: { S: number }) {
       <path d={`M${2.5 * S} ${15.5 * S} C ${2.6 * S} ${13 * S}, ${3.4 * S} ${11.5 * S}, ${3.5 * S} ${7.2 * S}`} stroke="#ff8a2a" strokeWidth={4} fill="none" strokeLinecap="round" markerEnd="url(#arr)" />
       <text x={0.2 * S} y={12.9 * S} className="pencil" fill="#ff8a2a">VARGA: bridge</text>
       <path d={`M${7.5 * S} ${15.3 * S} C ${10 * S} ${14 * S}, ${13.6 * S} ${12.5 * S}, ${14.5 * S} ${7.4 * S}`} stroke="#ff8a2a" strokeWidth={4} fill="none" strokeLinecap="round" markerEnd="url(#arr)" />
-      <text x={8.6 * S} y={15.9 * S} className="pencil" fill="#ff8a2a">MARLOW, OKONJO, HALDANE: weir</text>
+      <text x={15.9 * S} y={15.2 * S} className="pencil" fill="#ff8a2a" textAnchor="end">MARLOW, OKONJO,</text>
+      <text x={15.9 * S} y={16.0 * S} className="pencil" fill="#ff8a2a" textAnchor="end">HALDANE: the weir</text>
       <text x={8.5 * S} y={9.3 * S} className="pencil" fill="#e9e4d6" data-testid="note-gate">← gate: +1,500 if it stands</text>
-      <text x={9.2 * S} y={6.5 * S} className="pencil" fill="#e9e4d6">low quay floods if the gate goes</text>
+      <text x={15.9 * S} y={5.4 * S} className="pencil" fill="#e9e4d6" textAnchor="end">low quay floods</text>
+      <text x={15.9 * S} y={6.2 * S} className="pencil" fill="#e9e4d6" textAnchor="end">if the gate goes</text>
       <text x={0.2 * S} y={5.6 * S} className="pencil" fill="#ffd27a">lamps light you up: shoot them out</text>
       <text x={4.3 * S} y={10.9 * S} className="pencil" fill="#e9e4d6">winch swings the bridge</text>
     </>

@@ -25,6 +25,8 @@ export function line(a: Pos, b: Pos): Pos[] {
   return out;
 }
 
+/** LCK-1: can a walker stand here at all (ignoring other walkers)? */
+export const standable = (t: Tile | null): boolean => !!t && !t.obj && !RULES.impassable.includes(t.t);
 export const smokeAt = (s: BattleState, x: number, y: number): boolean => s.smoke.some((m) => m.x === x && m.y === y);
 
 /** MAP-4: containers, sheds and silos on an intermediate tile block sight; so does smoke (FLD-6). */
@@ -75,7 +77,7 @@ export function arcOf(at: Pos, f: Facing, from: Pos): Arc {
 /** Cost to step onto a tile from a neighbour (MAP-2); Infinity if blocked. */
 export function stepCost(s: BattleState, from: Pos, to: Pos, hop = false): number {
   const a = tileAt(s, from.x, from.y), b = tileAt(s, to.x, to.y);
-  if (!a || !b || b.obj) return Infinity;
+  if (!a || !b || b.obj || RULES.impassable.includes(b.t)) return Infinity; // LCK-1
   const climb = b.h - a.h;
   if (climb > 1 || climb < -1) return Infinity;
   return RULES.terrainCost[b.t] + (climb > 0 && !hop ? RULES.climbCost : 0); // MAN-3: Hop climbs free

@@ -193,11 +193,16 @@ function AttackPanel({ s, a, t }: { s: BattleState; a: Unit; t: Unit }) {
 function ObjectPanel({ s, a, x, y }: { s: BattleState; a: Unit; x: number; y: number }) {
   const t = s.tiles[y * s.w + x]!;
   const d = dist(a, { x, y });
-  const rows = modes(a).filter((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && d >= m.min && d <= m.max);
+  const rows = t.obj === 'winch' ? [] : modes(a).filter((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && d >= m.min && d <= m.max);
   return (
     <div className="card attack-panel">
-      <div className="ap-title">FIRE ON THE {t.obj?.toUpperCase()} <span className="dist">{t.objHp} HP</span></div>
-      <p className="hint">Every shot hits a standing object. At 0 HP it falls to rubble and stops giving cover.</p>
+      <div className="ap-title">{t.obj === 'winch' ? 'THE BRIDGE WINCH' : `FIRE ON THE ${t.obj === 'gate' ? 'LOCK GATE' : t.obj?.toUpperCase()}`} <span className="dist">{t.obj === 'winch' ? '' : `${t.objHp} HP`}</span></div>
+      {t.obj === 'winch' ? (
+        <button className="fire-row" data-testid="man-swing" disabled={!!maneuverBlock(s, a, 'swing', null, null, null)} onClick={() => { audio.play('confirm'); useGame.getState().maneuver('swing'); }}>
+          <span className="fr-w">Swing the bridge</span><span className="fr-dp">2 DP</span><span className="fr-c">{s.tiles.some((q) => q.bridge && q.t === 'deck') ? 'open' : 'close'}</span>
+          <span className="fr-n">{maneuverBlock(s, a, 'swing', null, null, null) ?? (s.tiles.some((q) => q.bridge && q.t === 'deck') ? 'opens the bridge: deep water where the deck was' : 'closes the bridge: the deck is back')}</span>
+        </button>
+      ) : <p className="hint">{t.obj === 'gate' ? (s.flooded ? 'The basin is already empty.' : 'Every shot hits. When a gate breaks the basin floods the low quays (walkers there are mired), and the gate bonus is lost.') : t.obj === 'lamp' ? 'Every shot hits. A lamp lights the tiles around it; shoot it out to darken them.' : 'Every shot hits a standing object. At 0 HP it falls to rubble and stops giving cover.'}</p>}
       {rows.map((m) => {
         const dmg = Math.round(m.dmg * m.shots);
         const blocked = a.fired.includes(m.slot) ? 'this weapon has given its order' : a.drive < m.dp ? `needs ${m.dp} drive` : null;

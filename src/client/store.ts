@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { chooseAction } from '../ai';
 import { applyResult, currentMission, newCampaign, deployFrom, type Campaign } from '../engine/campaign';
-import { MISSIONS } from '../engine/data';
+import { MISSIONS, RULES } from '../engine/data';
 import { dirTo, dist } from '../engine/grid';
 import { reachable } from '../engine/grid';
 import { canHitAny, dashRange, faceToward, fireBlock, maneuverBlock, modeIn, modes, pivotCost, shuntDir, unitById, walkRange } from '../engine/query';
@@ -190,9 +190,9 @@ export const useGame = create<ClientState>((set, get) => ({
     if (mine && here && here.side === 'hostile' && canHitAny(live, mine, here)) { audio.play('ui-tick'); set({ target: here.id, targetObj: null }); return; }
     // 3. A breakable object in range of a firing mode.
     const tile = live.tiles[y * live.w + x];
-    if (mine && !here && tile?.obj && ['wagon', 'container', 'shed', 'barrier'].includes(tile.obj)) {
+    if (mine && !here && tile?.obj && (RULES.objects[tile.obj].breakable || tile.obj === 'winch')) {
       const d = dist(mine, { x, y });
-      const can = shuntDir(live, mine, { x, y }) !== null || modes(mine).some((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && !mine.fired.includes(m.slot) && m.dp <= mine.drive && d >= m.min && d <= m.max);
+      const can = shuntDir(live, mine, { x, y }) !== null || (tile.obj === 'winch' && dist(mine, { x, y }) === 1) || modes(mine).some((m) => m.weapon.usable && m.shots > 0 && !m.mode.target && m.cls !== 'indirect' && !mine.fired.includes(m.slot) && m.dp <= mine.drive && d >= m.min && d <= m.max);
       if (can) { audio.play('ui-tick'); set({ targetObj: { x, y }, target: null }); return; }
     }
     // 4. Otherwise select whatever stands there, or clear.

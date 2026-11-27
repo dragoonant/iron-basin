@@ -25,6 +25,8 @@ export function parseMap(m: MissionDef): Tile[] {
   const w = m.map[0]!.length;
   for (const r of m.rails ?? []) for (let y = 0; y < m.map.length; y++) tiles[y * w + r.x]!.rail = r.axis;
   for (const [x, y] of m.stacks ?? []) tiles[y * w + x]!.stack = true;
+  for (const [x, y] of m.bridge ?? []) tiles[y * w + x]!.bridge = true; // LCK-2
+  for (const [x, y] of m.flood ?? []) tiles[y * w + x]!.flood = true; // LCK-5
   return tiles;
 }
 
@@ -124,6 +126,33 @@ function knockDown(t: Unit, ev: GameEvent[]): void {
   nerve(t, RULES.nerve.knockedDown, 'down', ev);
 }
 
+/** An object at 0 HP leaves its tile (ATK-9): rubble, except a lamp (bare quay) and a lock gate (deep water, and the
+ * basin floods: LCK-4, LCK-5). Every break goes through here. */
+function breakTile(s: BattleState, x: number, y: number, ev: GameEvent[]): void {
+  const t = tileAt(s, x, y);
+  if (!t || !t.obj) return;
+  const kind = t.obj;
+  t.obj = null; t.objHp = 0; t.stack = false;
+  if (kind === 'lamp') return;
+  if (kind === 'gate') { t.t = 'deep'; flood(s, x, y, ev); return; }
+  t.t = 'rubble';
+}
+
+/** LCK-5: the first broken gate empties the basin: flood tiles become water, walkers on them are mired. */
+function flood(s: BattleState, x: number, y: number, ev: GameEvent[]): void {
+  if (s.flooded) return;
+  s.flooded = true;
+  const tiles: Pos[] = [], mired: string[] = [];
+  for (let yy = 0; yy < s.h; yy++) for (let xx = 0; xx < s.w; xx++) {
+    const t = s.tiles[yy * s.w + xx]!;
+    if (!t.flood || t.obj) continue;
+    t.t = 'water'; tiles.push({ x: xx, y: yy });
+    const w = unitAt(s, xx, yy);
+    if (w) { w.status.mired = true; mired.push(w.id); }
+  }
+  ev.push({ type: 'flood', x, y, tiles, mired });
+}
+
 /** MAN-6: let go. */
 function release(s: BattleState, g: Unit, ev: GameEvent[]): void {
   if (!g.grip) return;
@@ -163,8 +192,8 @@ function maybeTopple(s: BattleState, x: number, y: number, from: Pos, ev: GameEv
     if (!q) continue;
     const w = unitAt(s, p.x, p.y);
     if (w) { const r = applyDamage(w, 'body', RULES.stack.dmg, 0); hits.push({ ...p, unit: w.id, dmg: r.dmg }); knockDown(w, after); }
-    else if (q.obj) { if (RULES.objects[q.obj].breakable) { q.objHp = Math.max(0, q.objHp - RULES.stack.dmg); if (q.objHp === 0) { q.obj = null; q.t = 'rubble'; q.stack = false; } } hits.push({ ...p, unit: null, dmg: RULES.stack.dmg }); }
-    else { q.t = 'rubble'; hits.push({ ...p, unit: null, dmg: 0 }); }
+    else if (q.obj) { if (RULES.objects[q.obj].breakable) { q.objHp = Math.max(0, q.objHp - RULES.stack.dmg); if (q.objHp === 0) breakTile(s, p.x, p.y, after); } hits.push({ ...p, unit: null, dmg: RULES.stack.dmg }); }
+    else if (!RULES.impassable.includes(q.t)) { q.t = 'rubble'; hits.push({ ...p, unit: null, dmg: 0 }); } // deep water stays deep
   }
   ev.push({ type: 'toppled', x, y, dir, hits }, ...after);
 }
@@ -172,7 +201,7 @@ function maybeTopple(s: BattleState, x: number, y: number, from: Pos, ev: GameEv
 /** Would a push of `t` toward `dir` move it (rather than collide)? */
 function pushMoves(s: BattleState, t: Unit, dir: Facing): boolean {
   const d = ahead(t, dir), q = tileAt(s, d.x, d.y), here = tileAt(s, t.x, t.y)!;
-  return !!q && !q.obj && !unitAt(s, d.x, d.y) && q.h <= here.h;
+  return !!q && !q.obj && !unitAt(s, d.x, d.y) && q.h <= here.h && !RULES.impassable.includes(q.t);
 }
 
 /** FLD-1: push `t` one tile straight away from `from`. Returns whether it moved. */
@@ -185,17 +214,17 @@ function push(s: BattleState, by: Unit, t: Unit, from: Pos, ev: GameEvent[]): bo
   const here = tileAt(s, t.x, t.y)!, there = tileAt(s, dest.x, dest.y);
   const other = there ? unitAt(s, dest.x, dest.y) : null;
   const c = RULES.push.collide;
-  if (!there || there.obj || other || there.h > here.h) {
+  if (!there || there.obj || other || there.h > here.h || RULES.impassable.includes(there.t)) { // LCK-8: deep water is a wall too
     const r = applyDamage(t, 'body', c, 0);
     let obj: { x: number; y: number; dmg: number; broken: boolean } | null = null;
     if (other) applyDamage(other, 'body', c, 0);
     if (there?.obj && RULES.objects[there.obj].breakable) {
       there.objHp = Math.max(0, there.objHp - c);
       const broken = there.objHp === 0;
-      if (broken) { there.obj = null; there.t = 'rubble'; }
       obj = { x: dest.x, y: dest.y, dmg: c, broken };
     }
     ev.push({ type: 'pushed', unit: t.id, by: by.id, x: t.x, y: t.y, result: 'collide', dmg: r.dmg, other: other?.id ?? null, obj });
+    if (obj?.broken) breakTile(s, dest.x, dest.y, ev);
     if (obj && !obj.broken) maybeTopple(s, dest.x, dest.y, t, ev);
     return false;
   }
@@ -332,7 +361,7 @@ function checkEnd(s: BattleState, ev: GameEvent[], timeout = false): void {
   s.result = {
     winner, reason, rounds: s.round, lost,
     salvage: win ? s.salvage : [],
-    credits: { fee: win ? m.fee : 0, bonus: win && s.round <= m.bonusRound ? m.bonus : 0, bounty: win ? lost.hostile * m.bounty : 0 },
+    credits: { fee: win ? m.fee : 0, bonus: win && s.round <= m.bonusRound ? m.bonus : 0, bounty: win ? lost.hostile * m.bounty : 0, ...(m.gateBonus ? { gate: win && !s.flooded ? m.gateBonus : 0 } : {}) }, // LCK-7
   };
   ev.push({ type: 'end', result: s.result });
 }
@@ -511,10 +540,9 @@ function stepInner(state: BattleState, action: Action): StepResult {
         const dmg = Math.round(mi.dmg * mi.shots);
         tile.objHp = Math.max(0, tile.objHp - dmg);
         const broken = tile.objHp === 0;
-        if (broken) { tile.obj = null; tile.t = 'rubble'; tile.stack = false; }
         if (mi.slot === 'P' && u.ammo !== null) u.ammo -= 1;
         ev.push({ type: 'objectHit', unit: u.id, slot: mi.slot, weapon: mi.weapon.id, mode: mi.mode.id, x: p.x, y: p.y, dmg, broken });
-        if (!broken) maybeTopple(s, p.x, p.y, u, ev);
+        if (broken) breakTile(s, p.x, p.y, ev); else maybeTopple(s, p.x, p.y, u, ev);
       }
       u.drive -= mi.dp; u.fired.push(mi.slot); u.lastWalk = null;
       settle(u);
@@ -583,6 +611,12 @@ function stepInner(state: BattleState, action: Action): StepResult {
         u.x = mv.tower.x; u.y = mv.tower.y; t!.x = mv.ally.x; t!.y = mv.ally.y;
         ev.push({ type: 'tow', unit: u.id, ally: t!.id, x: u.x, y: u.y, ax: t!.x, ay: t!.y });
       } else if (action.id === 'shunt') shunt(s, u, tile!, shuntDir(s, u, tile!)!, ev);
+      else if (action.id === 'swing') { // LCK-2: open the bridge if it is closed, close it if it is open
+        const tiles: Pos[] = [];
+        const open = s.tiles.some((q) => q.bridge && q.t === 'deck');
+        for (let yy = 0; yy < s.h; yy++) for (let xx = 0; xx < s.w; xx++) { const q = s.tiles[yy * s.w + xx]!; if (q.bridge) { q.t = open ? 'deep' : 'deck'; tiles.push({ x: xx, y: yy }); } }
+        ev.push({ type: 'bridge', unit: u.id, open, tiles });
+      }
       else if (d.kind === 'signature') {
         u.sigUsed = true;
         const allies = s.units.filter((a) => a.alive && a.side === u.side && a.id !== u.id);
@@ -657,7 +691,7 @@ function shunt(s: BattleState, u: Unit, at: Pos, dir: Facing, ev: GameEvent[]): 
       hps[hps.length - 1]! -= RULES.wagon.collide; objHit = nx;
       if (RULES.objects[nt.obj].breakable) {
         nt.objHp = Math.max(0, nt.objHp - RULES.wagon.collide);
-        if (nt.objHp === 0) { nt.obj = null; nt.t = 'rubble'; nt.stack = false; } else maybeTopple(s, nx.x, nx.y, lead, after);
+        if (nt.objHp === 0) breakTile(s, nx.x, nx.y, after); else maybeTopple(s, nx.x, nx.y, lead, after);
       }
       break;
     }

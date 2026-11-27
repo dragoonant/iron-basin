@@ -51,9 +51,10 @@ export function applyResult(c0: Campaign, s: BattleState): Campaign {
   if (s.result.winner === 'player') {
     for (const it of s.result.salvage) c.inventory.push({ uid: `i${c.nextUid++}`, kind: salvageKind(it), id: it.id, hp: it.hp, paint: it.paint });
     const cr = s.result.credits;
-    c.credits += cr.fee + cr.bonus + cr.bounty;
+    const paid = cr.fee + cr.bonus + cr.bounty + (cr.gate ?? 0);
+    c.credits += paid;
     c.mission += 1;
-    c.log.push(`${MISSIONS[s.mission]!.name}: won in ${s.result.rounds} rounds, +${cr.fee + cr.bonus + cr.bounty} credits, ${s.result.salvage.length} parts salvaged`);
+    c.log.push(`${MISSIONS[s.mission]!.name}: won in ${s.result.rounds} rounds, +${paid} credits, ${s.result.salvage.length} parts salvaged`);
   } else c.log.push(`${MISSIONS[s.mission]!.name}: withdrawn`);
   return c;
 }

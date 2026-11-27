@@ -38,14 +38,26 @@ function Terrain({ s }: { s: BattleState }) {
   const meshes = useMemo(() => {
     const groups = new Map<string, THREE.BufferGeometry[]>();
     const rails: THREE.BufferGeometry[] = [], sleepers: THREE.BufferGeometry[] = [], chunks: THREE.BufferGeometry[] = [], water: THREE.BufferGeometry[] = [];
+    const canal: THREE.BufferGeometry[] = [], deep: THREE.BufferGeometry[] = [], deck: THREE.BufferGeometry[] = [];
     for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
       const t = s.tiles[y * s.w + x]!;
       const p = tileToWorld(x, y, t.h);
-      const hgt = 0.3 + t.h * LEVEL_H;
-      const g = new THREE.BoxGeometry(1, hgt, 1);
-      g.translate(p.x, hgt / 2 - 0.3, p.z);
-      const key = t.h > 0 ? 'platform' : groundTex(t);
-      (groups.get(key) ?? groups.set(key, []).get(key)!).push(worldUv(g, key === 'wet-concrete' ? 0.22 : 0.4));
+      if (t.t === 'deep') {
+        // LCK-1: the canal: a dark channel bed well below the quays, deep water over it.
+        const bed = new THREE.BoxGeometry(1, 0.08, 1); bed.translate(p.x, -0.46, p.z); canal.push(bed);
+        const w = new THREE.PlaneGeometry(1, 1); w.rotateX(-Math.PI / 2); w.translate(p.x, -0.16, p.z); deep.push(w);
+      } else {
+        const hgt = 0.3 + t.h * LEVEL_H;
+        const g = new THREE.BoxGeometry(1, hgt, 1);
+        g.translate(p.x, hgt / 2 - 0.3, p.z);
+        const key = t.h > 0 ? 'platform' : groundTex(t);
+        (groups.get(key) ?? groups.set(key, []).get(key)!).push(worldUv(g, key === 'wet-concrete' ? 0.22 : 0.4));
+      }
+      if (t.t === 'deck') {
+        // LCK-2: the swing bridge's steel deck, with a rail along each side.
+        const plate = new THREE.BoxGeometry(1, 0.06, 1); plate.translate(p.x, p.y + 0.03, p.z); deck.push(plate);
+        for (const dx of [-0.46, 0.46]) { const r = new THREE.BoxGeometry(0.05, 0.32, 1); r.translate(p.x + dx, p.y + 0.22, p.z); deck.push(r); }
+      }
       if (t.t === 'ballast' || (t.obj === 'wagon')) {
         for (const dx of [-0.2, 0.2]) { const r = new THREE.BoxGeometry(0.04, 0.05, 1); r.translate(p.x + dx, p.y + 0.045, p.z); rails.push(r); }
         for (let k = 0; k < 3; k++) { const sl = new THREE.BoxGeometry(0.62, 0.035, 0.1); sl.translate(p.x, p.y + 0.017, p.z - 0.33 + k * 0.33); sleepers.push(sl); }
@@ -69,6 +81,9 @@ function Terrain({ s }: { s: BattleState }) {
     const sl = mk(sleepers, new THREE.MeshStandardMaterial({ color: '#2d2520', roughness: 0.95 })); if (sl) out.push(sl);
     const ch = mk(chunks, new THREE.MeshStandardMaterial({ map: tex('wet-concrete'), color: '#8d8a86', roughness: 0.95 })); if (ch) out.push(ch);
     const wa = mk(water, new THREE.MeshStandardMaterial({ color: '#6d7f8a', roughness: 0.08, metalness: 0.55, transparent: true, opacity: 0.72 })); if (wa) { wa.castShadow = false; out.push(wa); }
+    const cb = mk(canal, new THREE.MeshStandardMaterial({ color: '#1b2328', roughness: 1 })); if (cb) out.push(cb);
+    const dw = mk(deep, new THREE.MeshStandardMaterial({ color: '#3a4d57', roughness: 0.06, metalness: 0.6, transparent: true, opacity: 0.88 })); if (dw) { dw.castShadow = false; out.push(dw); }
+    const dk = mk(deck, new THREE.MeshStandardMaterial({ color: '#4a4e52', roughness: 0.45, metalness: 0.8 })); if (dk) out.push(dk);
     return out;
   }, [s.w, s.h, s.tiles.map((t) => t.t + t.h).join('')]); // eslint-disable-line react-hooks/exhaustive-deps
   return <>{meshes.map((m, i) => <primitive key={i} object={m} />)}</>;
@@ -134,6 +149,32 @@ function objectMesh(s: BattleState, x: number, y: number, t: Tile, mats: Record<
       g.add(box(0.9, 0.04, 0.04, mats.orange, 0, 0.3, 0.075));
       break;
     }
+    case 'gate': {
+      // LCK-4: a lock gate across the canal: timber planks in a steel frame, a walkway on top.
+      const planks = new THREE.MeshStandardMaterial({ color: '#5a4632', roughness: 0.9 });
+      g.position.y = -0.46;
+      g.add(box(0.34, 1.7, 1.0, planks, 0, 0.85, 0, 1.4));
+      for (const yy of [0.25, 0.85, 1.45]) g.add(box(0.38, 0.08, 1.02, mats.steel, 0, yy, 0));
+      g.add(box(0.6, 0.06, 1.02, mats.steel, 0.05, 1.74, 0));
+      g.add(box(0.04, 0.3, 1.0, mats.orange, 0.32, 1.9, 0));
+      break;
+    }
+    case 'lamp': {
+      // LCK-6: a quay lamp post.
+      g.add(box(0.08, 1.6, 0.08, mats.steel, 0, 0.8, 0));
+      g.add(box(0.36, 0.06, 0.08, mats.steel, 0.14, 1.6, 0));
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshStandardMaterial({ color: '#ffe2a0', emissive: new THREE.Color('#ffcf70'), emissiveIntensity: 2.2 }));
+      bulb.position.set(0.28, 1.52, 0); g.add(bulb);
+      const light = new THREE.PointLight('#ffcf80', 3.2, 4.2, 1.6); light.position.set(0.28, 1.45, 0); light.castShadow = false; g.add(light);
+      break;
+    }
+    case 'winch': {
+      // LCK-3: the bridge winch: a steel housing and a big wheel.
+      g.add(box(0.5, 0.5, 0.5, mats.steel, 0, 0.25, 0));
+      g.add(box(0.52, 0.06, 0.52, mats.orange, 0, 0.52, 0));
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.035, 8, 20), mats.orange); wheel.position.set(0, 0.62, 0.28); g.add(wheel);
+      break;
+    }
     case 'crane': {
       for (const dz of [-0.32, 0.32]) { const leg = box(0.12, 2.7, 0.12, mats.orange, 0, 1.35, dz); g.add(leg); }
       for (const yy of [0.7, 1.4, 2.1]) g.add(box(0.06, 0.06, 0.7, mats.orange, 0, yy, 0));
@@ -183,10 +224,19 @@ function Surroundings({ s }: { s: BattleState }) {
     const brick = new THREE.MeshStandardMaterial({ map: tex('brick'), roughness: 0.9, color: '#8d8a88' });
     const cont = new THREE.MeshStandardMaterial({ map: tex('container'), roughness: 0.8, color: '#7f8d97' });
     const rust = new THREE.MeshStandardMaterial({ map: tex('corrugated-rust'), roughness: 0.85 });
-    for (const rx of [4, 11]) for (const end of [-1, 1]) {
+    const railCols = [...new Set(s.tiles.map((t, i) => (t.rail ? i % s.w : -1)).filter((x) => x >= 0))];
+    for (const rx of railCols) for (const end of [-1, 1]) {
       const p = tileToWorld(rx, end < 0 ? 0 : s.h - 1);
       for (const dx of [-0.2, 0.2]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 20), steel); r.position.set(p.x + dx, -0.25, p.z + end * 10.5); group.add(r); }
     }
+    // The canal runs on past both edges (Kerrow).
+    const canalRows = [...new Set(s.tiles.map((t, i) => (t.t === 'deep' && (i % s.w === 0 || i % s.w === s.w - 1) ? Math.floor(i / s.w) : -1)).filter((y) => y >= 0))];
+    const deepMat = new THREE.MeshStandardMaterial({ color: '#3a4d57', roughness: 0.06, metalness: 0.6, transparent: true, opacity: 0.9 });
+    for (const cy of canalRows) for (const end of [-1, 1]) {
+      const p = tileToWorld(end < 0 ? 0 : s.w - 1, cy);
+      const w = new THREE.Mesh(new THREE.PlaneGeometry(22, 1), deepMat); w.rotation.x = -Math.PI / 2; w.position.set(p.x + end * 11.5, -0.2, p.z); group.add(w);
+    }
+    const onCanal = (z: number) => canalRows.some((cy) => Math.abs(tileToWorld(0, cy).z - z) < 1.3);
     // West, east and north: rows of stacked containers and brick sheds like the yard's own, never on the camera's side.
     for (let i = 0; i < 34; i++) {
       const side = i % 3;
@@ -196,6 +246,7 @@ function Surroundings({ s }: { s: BattleState }) {
       const x = side === 0 ? -s.w / 2 - off : side === 1 ? s.w / 2 + off : -s.w / 2 + ((k * 1.7) % (s.w + 6)) - 3;
       const z = side === 2 ? -s.h / 2 - off - 0.4 : along;
       if (side === 2 && Math.abs(x) < 1.5) continue;
+      if (side !== 2 && onCanal(z)) continue;
       const shed = rand(i, 11) < 0.3;
       if (shed) {
         const h = 1.3 + rand(i, 2) * 0.8;
@@ -214,7 +265,7 @@ function Surroundings({ s }: { s: BattleState }) {
     const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 9, 14), brick); chim.position.set(10, 4.2, -s.h / 2 - 14); group.add(chim);
     group.traverse((o) => { (o as THREE.Mesh).raycast = () => {}; });
     return group;
-  }, [s.w, s.h]);
+  }, [s.w, s.h, s.mission]); // eslint-disable-line react-hooks/exhaustive-deps
   return <primitive object={g} />;
 }
 

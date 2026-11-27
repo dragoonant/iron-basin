@@ -304,6 +304,22 @@ function start(ev: GameEvent): Track {
         },
       };
     }
+    case 'flood': {
+      audio.play('explode-walker', { gain: 0.6 }); audio.play('container-crash', { gain: 0.6 });
+      useGame.setState({ banner: { text: 'THE GATE GOES', sub: 'the basin floods the low quays', until: g.clock + 1.6 } });
+      g.note(`The lock gate gives way: the low quays flood.${ev.mired.length ? ` ${ev.mired.map(name).join(', ')} mired.` : ''}`, 'note');
+      let k = 0;
+      return {
+        t: 0, dur: 1.6,
+        tick: (t) => { const n = Math.floor((t / 1.4) * ev.tiles.length); for (; k < Math.min(n, ev.tiles.length); k++) { const q = ev.tiles[k]!; const p = tileToWorld(q.x, q.y, 0); p.y += 0.2; addFx({ kind: 'dust', a: p, b: p, dur: 1.2, size: 0.7, color: '#8aa0a8' }); } },
+        done: () => mutateShown((c) => { for (const q of ev.tiles) c.tiles[q.y * c.w + q.x]!.t = 'water'; for (const id of ev.mired) { const u = c.units.find((x) => x.id === id); if (u) u.status.mired = true; } }),
+      };
+    }
+    case 'bridge': {
+      audio.play('servo'); audio.play('container-crash', { gain: 0.4 });
+      g.note(`${name(ev.unit)} swings the bridge ${ev.open ? 'open' : 'shut'}.`, unitById(s, ev.unit)?.side ?? 'note');
+      return { t: 0, dur: 0.8, tick: () => {}, done: () => mutateShown((c) => { for (const q of ev.tiles) c.tiles[q.y * c.w + q.x]!.t = ev.open ? 'deep' : 'deck'; }) };
+    }
     case 'toppled': {
       audio.play('container-crash');
       const p = tileToWorld(ev.x, ev.y, levelAt(s, ev.x, ev.y)); p.y += 0.8;
@@ -411,7 +427,7 @@ function start(ev: GameEvent): Track {
             if (ev.broken) { audio.play('container-crash'); addFx({ kind: 'dust', a: p, b: p, dur: 1.6, size: 0.9, color: '#7a7064' }); }
           }
         },
-        done: () => { mutateShown((c) => { const tl = c.tiles[ev.y * c.w + ev.x]!; if (ev.broken) { tl.obj = null; tl.t = 'rubble'; } }); },
+        done: () => { mutateShown((c) => { const tl = c.tiles[ev.y * c.w + ev.x]!; if (ev.broken) { const kind = tl.obj; tl.obj = null; if (kind === 'gate') tl.t = 'deep'; else if (kind !== 'lamp') tl.t = 'rubble'; } }); },
       };
     }
     case 'repaired': {

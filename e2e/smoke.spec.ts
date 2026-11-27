@@ -103,3 +103,29 @@ test('the yard as a weapon: walk onto the rails and shunt the coupled wagons up 
   expect(t).toEqual(['wagon', 'wagon', null, null]);
   await expect(page.locator('.feed')).toContainText('coupled wagons');
 });
+
+test('contract 2: the Kerrow Locks loads from a saved campaign and the winch swings the bridge', async ({ page }) => {
+  await page.goto('./');
+  await page.click('[data-testid=new]');
+  const camp = await ib(page, 'window.__ib.state().campaign') as { mission: number };
+  camp.mission = 1;
+  await page.evaluate((c) => { localStorage.setItem('ib-save', JSON.stringify({ v: 2, savedAt: Date.now(), screen: 'briefing', campaign: c, battle: null })); localStorage.setItem('ib-hints-seen', '1'); }, camp);
+  await page.goto('./');
+  await expect(page.getByTestId('continue')).toContainText('The Kerrow Locks');
+  await page.click('[data-testid=continue]');
+  await expect(page.getByTestId('briefing')).toContainText('CONTRACT 2');
+  await page.click('[data-testid=skip-brief]');
+  await page.click('[data-testid=deploy]');
+  await page.waitForSelector('[data-testid=battle]');
+  await expect(page.locator('.strip .op')).toHaveText('THE KERROW LOCKS');
+  // Varga walks up to the winch on the south quay and swings the bridge open.
+  expect(await ib(page, 'window.__ib.dispatch({ type: "walk", unit: "varga", x: 1, y: 12, facing: "N" })')).toBe(true);
+  expect(await ib(page, 'window.__ib.dispatch({ type: "walk", unit: "varga", x: 2, y: 11, facing: "N" })')).toBe(true);
+  await ib(page, 'window.__ib.skip()');
+  await ib(page, 'window.__ib.tapTile(2, 11)');
+  await ib(page, 'window.__ib.tapTile(2, 10)');
+  await expect(page.getByTestId('man-swing')).toBeVisible();
+  await page.click('[data-testid=man-swing]');
+  await ib(page, 'window.__ib.skip()');
+  expect(await ib(page, '(() => { const s = window.__ib.state().live; return s.tiles[8 * s.w + 3].t; })()')).toBe('deep');
+});

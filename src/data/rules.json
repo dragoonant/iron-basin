@@ -4,7 +4,9 @@
     "ballast": 1,
     "mud": 1,
     "water": 2,
-    "rubble": 2
+    "rubble": 2,
+    "deck": 1,
+    "deep": 99
   },
   "climbCost": 1,
   "waterEvade": 10,
@@ -82,6 +84,24 @@
       "blocksSight": false,
       "cover": false,
       "breakable": false
+    },
+    "gate": {
+      "hp": 160,
+      "blocksSight": true,
+      "cover": true,
+      "breakable": true
+    },
+    "lamp": {
+      "hp": 20,
+      "blocksSight": false,
+      "cover": false,
+      "breakable": true
+    },
+    "winch": {
+      "hp": 0,
+      "blocksSight": false,
+      "cover": false,
+      "breakable": false
     }
   },
   "repairCost": 8,
@@ -139,5 +159,8 @@
     "pinned": -1,
     "knockedDown": -1,
     "allyLost": -2
-  }
+  },
+  "impassable": [
+    "deep"
+  ]
 }

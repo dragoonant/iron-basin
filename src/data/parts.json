@@ -457,7 +457,8 @@
     "shunt",
     "grab",
     "throw",
-    "breakFree"
+    "breakFree",
+    "swing"
   ],
   "maneuvers": {
     "pivot": {
@@ -601,6 +602,11 @@
       "nerve": 4,
       "kind": "signature",
       "gain": 1
+    },
+    "swing": {
+      "name": "Swing the bridge",
+      "dp": 2,
+      "kind": "field"
     }
   }
 }

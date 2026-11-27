@@ -1,7 +1,7 @@
 // Plain-JSON state (ARCH-6): only objects, arrays, strings, numbers, booleans and null.
 export type Side = 'player' | 'hostile';
-export type Terrain = 'concrete' | 'ballast' | 'mud' | 'water' | 'rubble';
-export type ObjKind = 'wagon' | 'container' | 'shed' | 'barrier' | 'silo' | 'crane';
+export type Terrain = 'concrete' | 'ballast' | 'mud' | 'water' | 'rubble' | 'deep' | 'deck';
+export type ObjKind = 'wagon' | 'container' | 'shed' | 'barrier' | 'silo' | 'crane' | 'gate' | 'lamp' | 'winch';
 export type PartSlot = 'body' | 'armL' | 'armR' | 'legs';
 /** Where a hit can land: a part, or the backpack from the rear (FAC-3). */
 export type HitSlot = PartSlot | 'pack';
@@ -31,6 +31,10 @@ export interface Tile {
   rail?: 'ns';
   /** FLD-7: this container is part of a stack that can topple (FLD-5). */
   stack?: boolean;
+  /** LCK-2: a swing-bridge tile (deck when closed, deep water when open). */
+  bridge?: boolean;
+  /** LCK-5: floods when a lock gate breaks. */
+  flood?: boolean;
 }
 
 export interface Pos { x: number; y: number }
@@ -148,6 +152,8 @@ export interface BattleState {
   salvage: SalvageItem[];
   result: Result | null;
   turnCount: number;
+  /** LCK-4: a lock gate has broken and the basin has emptied (once a battle). */
+  flooded?: boolean;
 }
 
 export type Action =
@@ -195,6 +201,10 @@ export type GameEvent =
   | { type: 'tow'; unit: string; ally: string; x: number; y: number; ax: number; ay: number }
   /** FLD-3: the rake of coupled wagons that rolled, lead first. */
   | { type: 'wagon'; unit: string; cars: { from: Pos; to: Pos; hp: number; broken: boolean }[]; hit: string | null; obj: Pos | null }
+  /** LCK-4, LCK-5: a gate broke; the flood tiles are water now and these walkers are mired. */
+  | { type: 'flood'; x: number; y: number; tiles: Pos[]; mired: string[] }
+  /** LCK-2: the swing bridge opened or closed. */
+  | { type: 'bridge'; unit: string; open: boolean; tiles: Pos[] }
   | { type: 'toppled'; x: number; y: number; dir: Facing; hits: { x: number; y: number; unit: string | null; dmg: number }[] }
   | { type: 'smoke'; unit: string; x: number; y: number; tiles: Pos[] }
   | { type: 'smokeClear'; side: Side }

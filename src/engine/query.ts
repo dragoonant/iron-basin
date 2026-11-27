@@ -424,7 +424,7 @@ export function towMove(s: BattleState, u: Unit, ally: Unit): { tower: Pos; ally
   const dir = dirTo(ally, u)!;
   const dest = ahead(u, dir);
   const here = tileAt(s, u.x, u.y)!, there = tileAt(s, dest.x, dest.y), from = tileAt(s, ally.x, ally.y)!;
-  if (!there || there.obj || unitAt(s, dest.x, dest.y) || there.h - here.h > 1 || here.h - from.h > 1) return null;
+  if (!there || there.obj || RULES.impassable.includes(there.t) || unitAt(s, dest.x, dest.y) || there.h - here.h > 1 || here.h - from.h > 1) return null;
   return { tower: dest, ally: { x: u.x, y: u.y } };
 }
 
@@ -463,6 +463,12 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
     }
     case 'tow': return target && target.alive && target.side === u.side && target.id !== u.id ? (towMove(s, u, target) ? null : 'no room to tow') : 'tow an adjacent ally';
     case 'shunt': return tile && shuntDir(s, u, tile) ? null : 'stand on the rails next to a wagon on the same line';
+    case 'swing': { // LCK-2, LCK-3
+      if (!s.tiles.some((q) => q.bridge)) return 'no bridge here';
+      if (!FACINGS.some((f) => { const q = ahead(u, f); return tileAt(s, q.x, q.y)?.obj === 'winch'; })) return 'stand next to a winch';
+      if (s.units.some((w) => w.alive && tileAt(s, w.x, w.y)?.bridge)) return 'a walker is on the bridge';
+      return null;
+    }
     case 'patch': return 'use Patch';
     case 'ghost-step': {
       if (!u.fired.length) return 'only after a fire order this phase';

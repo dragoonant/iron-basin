@@ -62,10 +62,16 @@ export interface MissionDef {
   map: string[];
   rails: { x: number; axis: 'ns' }[];
   stacks: [number, number][];
+  /** LCK-2: swing-bridge tiles. */
+  bridge?: [number, number][];
+  /** LCK-5: tiles that flood when a gate breaks. */
+  flood?: [number, number][];
   units: MissionUnit[];
 }
 export interface RulesDef {
   terrainCost: Record<Terrain, number>;
+  /** LCK-1: terrain no walker can enter. */
+  impassable: Terrain[];
   climbCost: number;
   waterEvade: number;
   coverPenalty: number;

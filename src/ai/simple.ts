@@ -26,7 +26,7 @@ export function distanceField(s: BattleState, side: Side): number[] {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const nx = x + dx, ny = y + dy;
       const t = tileAt(s, nx, ny);
-      if (!t || t.obj) continue;
+      if (!t || t.obj || RULES.impassable.includes(t.t)) continue;
       const j = ny * s.w + nx;
       if (d[j]! > d[i]! + 1) { d[j] = d[i]! + 1; q.push(j); }
     }

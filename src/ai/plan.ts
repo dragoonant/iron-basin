@@ -4,7 +4,7 @@
 // lane, a guard, a wagon), the end tile by the threat it faces and the cover it has, and the reserve by the return fire it
 // would give. Only the plan's first order is returned; the next call plans again from the new state.
 // Pure function of view(state, side) (ARCH-4): no DOM, no three.js, no randomness.
-import { pack, RULES } from '../engine/data';
+import { MISSIONS, pack, RULES } from '../engine/data';
 import { ahead, arcOf, dirTo, dist, FACINGS, hasCover, line, reachable, tileAt, unitAt, type Pos } from '../engine/grid';
 import {
   callable, canHitAny, chanceOf, cheapestMode, dashRange, expectedOf, faceToward, fireBlock, living, maneuverBlock, maneuverRoll,
@@ -75,6 +75,32 @@ class Ctx {
     this.pos.set(k, best);
     return best;
   }
+  private swing: number | null = null;
+  /** LCK-2: what swinging the bridge is worth to our side: melee walkers want the way open to the enemy, and want the
+   * enemy's melee walkers kept away. Measured with the distance fields before and after. */
+  swingValue(): number {
+    if (this.swing !== null) return this.swing;
+    const s = this.s, side = this.u.side;
+    const after: BattleState = { ...s, tiles: s.tiles.map((t) => (t.bridge ? { ...t, t: t.t === 'deck' ? 'deep' : 'deck' } : t)) };
+    const melee = (w: Unit) => weapons(w).some((x) => x.usable && x.def.class === 'melee');
+    const ours0 = distanceField(s, side), ours1 = distanceField(after, side);
+    const foe = side === 'player' ? 'hostile' : 'player';
+    const theirs0 = distanceField(s, foe), theirs1 = distanceField(after, foe);
+    const at = (f: number[], w: Unit) => Math.min(30, f[w.y * s.w + w.x] ?? 30);
+    let v = 0;
+    for (const w of [this.u, ...this.allies]) if (melee(w)) v += (at(ours0, w) - at(ours1, w)) * 2;
+    for (const e of this.enemies) if (melee(e)) v -= (at(theirs0, e) - at(theirs1, e)) * 2;
+    this.swing = v;
+    return v;
+  }
+  /** LCK-4, LCK-5: what a broken gate would be worth: enemies mired on the flood tiles, ours too, and the bonus lost. */
+  floodValue(): number {
+    if (this.s.flooded) return 0;
+    const onFlood = (w: Unit) => !!tileAt(this.s, w.x, w.y)?.flood;
+    let v = this.enemies.filter(onFlood).length * 14 - [this.u, ...this.allies].filter(onFlood).length * 14;
+    if (this.u.side === 'player' && MISSIONS[this.s.mission]?.gateBonus) v -= 20;
+    return v;
+  }
   /** What an enemy could deal in its next phase (its best mode on the nearest of us), for valuing pins. */
   output(e: Unit): number {
     let best = 0;
@@ -112,7 +138,7 @@ function pushValue(s: BattleState, e: Unit, from: Pos): number {
   const dir = dirTo(from, e);
   if (!dir) return 0;
   const d = ahead(e, dir), here = tileAt(s, e.x, e.y)!, q = tileAt(s, d.x, d.y);
-  if (!q || q.obj || unitAt(s, d.x, d.y) || q.h > here.h) {
+  if (!q || q.obj || unitAt(s, d.x, d.y) || q.h > here.h || RULES.impassable.includes(q.t)) {
     const topple = q?.stack && q.obj === 'container' && q.objHp - RULES.push.collide <= RULES.stack.toppleAt && q.objHp > RULES.push.collide ? 10 : 0;
     return RULES.push.collide + topple;
   }
@@ -278,6 +304,24 @@ function candidates(c: Ctx, g: Unit, at: Pos): Cand[] {
     } else if (m.id === 'plant' && !ga.status.planted) {
       const behind = c.allies.some((a) => dist(a, at) === 1);
       if (behind) out.push({ ...base, action: act({}), value: 4, target: null, kind: 'plant' });
+    }
+  }
+  // LCK-2: swing the bridge from a winch.
+  if (!maneuverBlock(s, ga, 'swing', null, null, null) && ga.drive >= 2) {
+    const v = c.swingValue() - 3;
+    if (v > 0) out.push({ dp: 2, slot: null, kill: false, action: { type: 'maneuver', unit: g.id, id: 'swing' }, value: v, target: null, kind: 'swing' });
+  }
+  // LCK-4: fire on a lock gate when the flood is worth it.
+  const fv = c.floodValue();
+  if (fv > 0) for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    const t = s.tiles[y * s.w + x]!;
+    if (t.obj !== 'gate') continue;
+    for (const mi of modes(ga)) {
+      const d = dist(at, { x, y });
+      if (!mi.weapon.usable || ga.fired.includes(mi.slot) || mi.dp > ga.drive || mi.shots === 0 || mi.mode.target || mi.cls === 'indirect' || d < mi.min || d > mi.max) continue;
+      const dmg = Math.round(mi.dmg * mi.shots);
+      const v = (Math.min(dmg, t.objHp) / t.objHp) * fv * (dmg >= t.objHp ? 1.5 : 0.6);
+      if (v > 1) out.push({ dp: mi.dp, slot: mi.slot, kill: false, action: { type: 'fireAt', unit: g.id, slot: mi.slot, mode: mi.mode.id, x, y }, value: v, target: null, kind: 'gate' });
     }
   }
   // MAN-10: Patch.
