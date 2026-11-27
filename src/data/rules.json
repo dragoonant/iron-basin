@@ -162,5 +162,6 @@
   },
   "impassable": [
     "deep"
-  ]
+  ],
+  "nightSight": 5
 }

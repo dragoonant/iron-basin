@@ -6,7 +6,7 @@ import { applyResult, currentMission, newCampaign, deployFrom, type Campaign } f
 import { MISSIONS, RULES } from '../engine/data';
 import { dirTo, dist } from '../engine/grid';
 import { reachable } from '../engine/grid';
-import { canHitAny, dashRange, faceToward, fireBlock, maneuverBlock, modeIn, modes, pivotCost, shuntDir, unitById, walkRange } from '../engine/query';
+import { canHitAny, dashRange, faceToward, fireBlock, maneuverBlock, modeIn, modes, pivotCost, seenBy, shuntDir, unitById, walkRange } from '../engine/query';
 import { legalActions, newBattle, step, view } from '../engine/step';
 import type { Action, BattleState, Facing, GameEvent, HitSlot, WeaponSlot } from '../engine/types';
 import { audio } from './audio';
@@ -148,7 +148,8 @@ export const useGame = create<ClientState>((set, get) => ({
     const st = get();
     const live = st.live;
     if (!live || live.result || st.presenting || st.queue.length || live.phase !== 'player') return;
-    const here = live.units.find((u) => u.alive && u.x === x && u.y === y) ?? null;
+    // FOG-4: an enemy the player cannot see is not there as far as a tap is concerned (a walk onto it is an ambush).
+    const here = live.units.find((u) => u.alive && u.x === x && u.y === y && seenBy(live, 'player', u)) ?? null;
     const sel = st.selected ? unitById(live, st.selected) : null;
     const mine = sel && sel.side === 'player' && sel.alive && !sel.done ? sel : null;
     // 0. A tile or ally mode waiting for its tap (Smoke, Cover lane, Guard).

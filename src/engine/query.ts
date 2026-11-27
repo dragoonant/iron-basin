@@ -123,6 +123,33 @@ export function cheapestMode(u: Unit, slot: WeaponSlot): ModeInfo | null {
 
 const packUp = (u: Unit): boolean => pack(u.build.pack).kind !== 'none' && !u.status.packOut;
 
+// Night and fog (spec 20 FOG). In daylight every walker is known and sight is line of sight.
+/** FOG-2, FOG-3: lit by a standing lamp or a flare (3 x 3 around each). */
+export function litAt(s: BattleState, p: Pos): boolean {
+  for (let y = p.y - 1; y <= p.y + 1; y++) for (let x = p.x - 1; x <= p.x + 1; x++) if (tileAt(s, x, y)?.obj === 'lamp') return true;
+  return (s.flares ?? []).some((f) => Math.abs(f.x - p.x) <= 1 && Math.abs(f.y - p.y) <= 1);
+}
+/** FOG-1: how far `w` sees at night. */
+export function sightRange(w: Unit): number {
+  const p = pack(w.build.pack);
+  return Math.max(RULES.nightSight, p.kind === 'sensor' && !w.status.packOut ? p.sensorRange ?? 0 : 0);
+}
+/** FOG-1: does walker `w`, standing at `at`, see tile `p`? */
+export function sees(s: BattleState, w: Unit, p: Pos, at: Pos = w): boolean {
+  if (!hasLos(s, at, p)) return false;
+  if (!s.night) return true;
+  return dist(at, p) <= sightRange(w) || litAt(s, p);
+}
+/** FOG-4: is `target` seen by `side`? `extra` adds a viewpoint (a walker planned at another tile). */
+export function seenBy(s: BattleState, side: Unit['side'], target: Unit, extra?: { w: Unit; at: Pos }): boolean {
+  if (!s.night || target.side === side) return true;
+  if (target.flash === side) return true;
+  if (extra && sees(s, extra.w, target, extra.at)) return true;
+  return s.units.some((a) => a.alive && a.side === side && (!extra || a.id !== extra.w.id) && sees(s, a, target));
+}
+/** FOG-8: the walkers `side` knows of (its own, and the enemies it sees). */
+export const knownTo = (s: BattleState, side: Unit['side']) => (o: Unit): boolean => o.side === side || seenBy(s, side, o);
+
 /** ATK-7: an ally with a working sensor pack sees the target within its sensor range. */
 export function spotted(s: BattleState, side: Unit['side'], target: Pos, exclude?: string): boolean {
   return s.units.some((a) => {
@@ -134,8 +161,8 @@ export function spotted(s: BattleState, side: Unit['side'], target: Pos, exclude
 
 /** ATK-5: indirect fire sees what the firer or any ally sees. */
 export function indirectSight(s: BattleState, u: Unit, at: Pos, target: Pos): boolean {
-  if (hasLos(s, at, target)) return true;
-  return s.units.some((a) => a.alive && a.side === u.side && a.id !== u.id && hasLos(s, a, target));
+  if (sees(s, u, target, at)) return true; // FOG-4: at night, a walker that sees it
+  return s.units.some((a) => a.alive && a.side === u.side && a.id !== u.id && sees(s, a, target));
 }
 
 /** Range and sight only (MOD-1): used by orders and by reactions, which ignore the own-phase budget. */
@@ -174,6 +201,7 @@ export function fireBlock(s: BattleState, u: Unit, slot: WeaponSlot, modeId: str
     return dist(at, target) === 1 ? null : 'the ally must be adjacent';
   }
   if (target.side === u.side) return 'not an enemy';
+  if (!seenBy(s, u.side, target, { w: u, at })) return 'not seen'; // FOG-4
   if (!reaches(s, u, mi, target, at)) return dist(at, target) < mi.min || dist(at, target) > mi.max ? 'out of range' : 'no line of sight';
   return needsMet(s, u, mi, target);
 }
@@ -271,6 +299,7 @@ export function expectedOf(s: BattleState, u: Unit, mi: Roll, target: Unit, at: 
 /** RCT-2: the return fire `target` would give an attack from `attackerAt`, if any. */
 export function returnFire(s: BattleState, target: Unit, attacker: Unit, attackerAt: Pos = attacker): ModeInfo | null {
   if (!target.alive || target.reserve < 1 || target.holdFire || target.status.down || shaken(target)) return null;
+  if (!seenBy(s, target.side, { ...attacker, x: attackerAt.x, y: attackerAt.y, flash: target.side })) return null; // FOG-4, FOG-5
   if (arcOf(target, target.facing, attackerAt) !== 'front') return null;
   const ghost = { ...attacker, x: attackerAt.x, y: attackerAt.y };
   let best: ModeInfo | null = null, bestDmg = 0;
@@ -316,6 +345,7 @@ export function overwatchers(s: BattleState, walker: Unit, p: Pos): Unit[] {
     const mi = cheapestMode(o, o.overwatch.slot);
     if (!w || !w.usable || !mi || !reaches(s, o, mi, p)) continue;
     if (arcOf(o, o.facing, p) !== 'front') continue;
+    if (!sees(s, o, p)) continue; // FOG-4
     out.push(o);
   }
   return out.sort((a, b) => dist(a, p) - dist(b, p) || a.id.localeCompare(b.id));
@@ -361,8 +391,10 @@ export function preview(s: BattleState, u: Unit, slot: WeaponSlot, modeId: strin
 /** DRV-3: where a walk can end. */
 export function walkRange(s: BattleState, u: Unit, bonus = 0): Reach[] {
   if (!u.alive || u.done || u.drive < RULES.drive.walk || u.status.grabbedBy) return [];
-  return reachable(s, u, stats(s, u).move + bonus, u, hasTrait(u, 'hop'));
+  return reachable(s, u, stats(s, u).move + bonus, u, hasTrait(u, 'hop'), s.night ? knownTo(s, u.side) : undefined);
 }
+/** FOG-8: a reach planned on what `u`'s side knows (Ghost step, the AI's onward walk). */
+export const knownReach = (s: BattleState, u: Unit, budget: number, from: Pos = u): Reach[] => reachable(s, u, budget, from, hasTrait(u, 'hop'), s.night ? knownTo(s, u.side) : undefined);
 /** MAN-2. */
 export const dashRange = (s: BattleState, u: Unit): Reach[] => walkRange(s, u, maneuver('dash')?.moveBonus ?? 0);
 export const moveRange = walkRange;
@@ -424,7 +456,8 @@ export function towMove(s: BattleState, u: Unit, ally: Unit): { tower: Pos; ally
   const dir = dirTo(ally, u)!;
   const dest = ahead(u, dir);
   const here = tileAt(s, u.x, u.y)!, there = tileAt(s, dest.x, dest.y), from = tileAt(s, ally.x, ally.y)!;
-  if (!there || there.obj || RULES.impassable.includes(there.t) || unitAt(s, dest.x, dest.y) || there.h - here.h > 1 || here.h - from.h > 1) return null;
+  const occupant = unitAt(s, dest.x, dest.y);
+  if (!there || there.obj || RULES.impassable.includes(there.t) || (occupant && knownTo(s, u.side)(occupant)) || there.h - here.h > 1 || here.h - from.h > 1) return null;
   return { tower: dest, ally: { x: u.x, y: u.y } };
 }
 
@@ -458,6 +491,7 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
     case 'breakFree': return u.status.grabbedBy ? null : 'not held';
     case 'mark': {
       if (!target || !target.alive || target.side === u.side) return 'mark an enemy';
+      if (!seenBy(s, u.side, target, { w: u, at: u })) return 'not seen';
       if (target.status.markedBy === u.side) return 'already marked';
       return dist(u, target) <= (pack(u.build.pack).sensorRange ?? 0) && hasLos(s, u, target) ? null : 'out of sensor range or sight';
     }
@@ -473,7 +507,7 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
     case 'ghost-step': {
       if (!u.fired.length) return 'only after a fire order this phase';
       if (u.status.grabbedBy) return 'held by a grab';
-      return tile && reachable(s, u, stats(s, u).move, u, hasTrait(u, 'hop')).some((r) => r.x === tile.x && r.y === tile.y && (r.x !== u.x || r.y !== u.y)) ? null : 'out of reach';
+      return tile && knownReach(s, u, stats(s, u).move).some((r) => r.x === tile.x && r.y === tile.y && (r.x !== u.x || r.y !== u.y)) ? null : 'out of reach';
     }
     case 'hot-patch': {
       if (pack(u.build.pack).kind !== 'repair' || u.status.packOut || u.charges <= 0) return 'needs a working repair crane with a charge';
@@ -485,6 +519,7 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
   if (d.kind === 'attack') {
     const r = maneuverRoll(id, slot)!;
     if (!target || !target.alive || target.side === u.side) return 'not an enemy';
+    if (!seenBy(s, u.side, target, { w: u, at: u })) return 'not seen'; // FOG-4
     if (id === 'grab' && (u.grip || target.status.grabbedBy)) return u.grip ? 'already holding a walker' : 'already held';
     if (d.needs === 'emptyHand+rubble' && !rubbleNear(s, u)) return 'needs rubble next to the walker';
     const dd = dist(u, target);

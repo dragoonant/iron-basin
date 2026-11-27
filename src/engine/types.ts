@@ -108,6 +108,8 @@ export interface Unit {
   guarding: string[];
   /** MAN-6. */
   grip: Grip | null;
+  /** FOG-5: this walker fired and is seen by that side until that side's phase next ends. */
+  flash: Side | null;
   /** MAN-8: maneuvers used this phase that are limited to one a phase. */
   usedThisPhase: string[];
   /** NRV-5: the pilot's signature has been used this battle. */
@@ -154,6 +156,12 @@ export interface BattleState {
   turnCount: number;
   /** LCK-4: a lock gate has broken and the basin has emptied (once a battle). */
   flooded?: boolean;
+  /** FOG: a night mission: short sight and fog of war. */
+  night?: boolean;
+  /** FOG-6: lit tiles under a flare, and the side that fired it. */
+  flares?: Smoke[];
+  /** FOG-7: where each side last saw each enemy walker. */
+  intel?: Record<Side, Record<string, Pos>>;
 }
 
 export type Action =
@@ -201,6 +209,11 @@ export type GameEvent =
   | { type: 'tow'; unit: string; ally: string; x: number; y: number; ax: number; ay: number }
   /** FLD-3: the rake of coupled wagons that rolled, lead first. */
   | { type: 'wagon'; unit: string; cars: { from: Pos; to: Pos; hp: number; broken: boolean }[]; hit: string | null; obj: Pos | null }
+  /** FOG-6. */
+  | { type: 'flare'; unit: string; x: number; y: number; tiles: Pos[] }
+  | { type: 'flareOut'; side: Side }
+  /** FOG-8: a walk or tow ran into an enemy the side could not see. */
+  | { type: 'ambush'; unit: string; enemy: string; x: number; y: number }
   /** LCK-4, LCK-5: a gate broke; the flood tiles are water now and these walkers are mired. */
   | { type: 'flood'; x: number; y: number; tiles: Pos[]; mired: string[] }
   /** LCK-2: the swing bridge opened or closed. */

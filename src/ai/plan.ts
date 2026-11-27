@@ -306,6 +306,32 @@ function candidates(c: Ctx, g: Unit, at: Pos): Cand[] {
       if (behind) out.push({ ...base, action: act({}), value: 4, target: null, kind: 'plant' });
     }
   }
+  if (s.night) {
+    // FOG-2: shoot out a lamp that lights us up.
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+      if (s.tiles[y * s.w + x]!.obj !== 'lamp') continue;
+      const lit = [{ x: at.x, y: at.y }, ...c.allies].filter((a) => Math.abs(a.x - x) <= 1 && Math.abs(a.y - y) <= 1).length;
+      if (!lit) continue;
+      for (const mi of modes(ga)) {
+        const d = dist(at, { x, y });
+        if (!mi.weapon.usable || ga.fired.includes(mi.slot) || mi.dp > ga.drive || mi.shots === 0 || mi.mode.target || mi.cls === 'indirect' || d < mi.min || d > mi.max) continue;
+        const breaks = mi.dmg * mi.shots >= (s.tiles[y * s.w + x]!.objHp);
+        out.push({ dp: mi.dp, slot: mi.slot, kill: false, action: { type: 'fireAt', unit: g.id, slot: mi.slot, mode: mi.mode.id, x, y }, value: lit * (breaks ? 6 : 2), target: null, kind: 'lamp' });
+      }
+    }
+    // FOG-6: a flare over the last sighting of an enemy we cannot see, for the walkers still to act.
+    const unseen = Object.entries(s.intel?.[g.side] ?? {}).filter(([id]) => !s.units.some((e) => e.id === id));
+    const waiting = c.allies.filter((a) => !a.done).length;
+    if (unseen.length && waiting) for (const mi of modes(ga)) {
+      if (mi.mode.effect !== 'flare' || !mi.weapon.usable || ga.fired.includes(mi.slot) || mi.dp > ga.drive) continue;
+      for (const [, p] of unseen) {
+        const d = dist(at, p);
+        if (d < mi.min || d > mi.max) continue;
+        out.push({ dp: mi.dp, slot: mi.slot, kill: false, action: { type: 'fireAt', unit: g.id, slot: mi.slot, mode: mi.mode.id, x: p.x, y: p.y }, value: 5 + 3 * Math.min(3, waiting), target: null, kind: 'flare' });
+        break;
+      }
+    }
+  }
   // LCK-2: swing the bridge from a winch.
   if (!maneuverBlock(s, ga, 'swing', null, null, null) && ga.drive >= 2) {
     const v = c.swingValue() - 3;
@@ -343,7 +369,7 @@ function candidates(c: Ctx, g: Unit, at: Pos): Cand[] {
 function packages(cands: Cand[], drive: number): { cands: Cand[]; value: number; dp: number }[] {
   const sorted = [...cands].sort((a, b) => b.value - a.value);
   const out: { cands: Cand[]; value: number; dp: number }[] = [{ cands: [], value: 0, dp: 0 }];
-  const clash = (a: Cand, b: Cand) => (a.slot !== null && a.slot === b.slot) || (a.kind === b.kind && (a.kind === 'mark' || a.kind === 'smoke' || a.kind.startsWith('lane') || a.kind === 'patch' || a.kind === 'brace' || a.kind === 'plant'));
+  const clash = (a: Cand, b: Cand) => (a.slot !== null && a.slot === b.slot) || (a.kind === b.kind && (a.kind === 'mark' || a.kind === 'smoke' || a.kind.startsWith('lane') || a.kind === 'patch' || a.kind === 'brace' || a.kind === 'plant' || a.kind === 'flare'));
   for (const first of sorted.slice(0, K_PACK)) {
     if (first.value <= 0 || first.dp > drive) continue;
     out.push({ cands: [first], value: first.value, dp: first.dp });

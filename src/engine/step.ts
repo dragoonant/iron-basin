@@ -6,7 +6,7 @@ import { next, seedRng, hashText } from './rng';
 import {
   callable, chanceOf, cheapestMode, dashRange, driveAtStart, fireBlock, guardFor, hasTrait, hitWeights, indirectSight, living, maneuverBlock,
   maneuverRoll, maneuversOf, maxHp, modeIn, modes, overwatchers, patchCost, pivotCost, returnFire, shieldCut, shuntDir, towMove, unitById,
-  stats, walkRange, weaponIn, type FireClass, type Roll,
+  knownReach, seenBy, stats, walkRange, weaponIn, type FireClass, type Roll,
 } from './query';
 import type {
   Action, BattleState, Build, Facing, GameEvent, HitSlot, PaintSlot, PartSlot, Paint, Reaction, Result, ShotEvent, Side, StepResult, Tile, Unit, WeaponSlot,
@@ -41,7 +41,7 @@ export function makeUnit(d: Deploy): Unit {
     paint: { body: base, armL: base, armR: base, legs: base, pack: base, ...(d.paint ?? {}) },
     hp: { body: 0, armL: 0, armR: 0, legs: 0 }, ammo: null, charges: 0,
     drive: 0, reserve: RULES.drive.startReserve, done: false, fired: [], walked: false, lastWalk: null, holdFire: false,
-    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], grip: null, usedThisPhase: [], sigUsed: false, bonusReserve: 0, alive: true,
+    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], grip: null, flash: null, usedThisPhase: [], sigUsed: false, bonusReserve: 0, alive: true,
   };
   for (const p of ['body', 'armL', 'armR', 'legs'] as const) u.hp[p] = Math.min(maxHp(u, p), d.hp?.[p] ?? maxHp(u, p));
   const pk = pack(u.build.pack);
@@ -62,6 +62,12 @@ export function newBattle(missionId: string, seed: number, deploy?: Deploy[]): B
     units: [...players, ...hostiles].map(makeUnit).filter((u) => u.alive), smoke: [],
     round: 1, phase: 'player', rng: seedRng(seed), salvage: [], result: null, turnCount: 0,
   };
+  if (m.night) {
+    // FOG-7: night, flares, and each side's intel: the briefing tells each side where the other starts.
+    s.night = true; s.flares = [];
+    s.intel = { player: {}, hostile: {} };
+    for (const w of s.units) s.intel[w.side === 'player' ? 'hostile' : 'player'][w.id] = { x: w.x, y: w.y };
+  }
   startPhase(s, 'player', []);
   return s;
 }
@@ -263,6 +269,7 @@ interface FireOpts { reaction: Reaction | null; part?: HitSlot }
 function resolveFire(s: BattleState, a: Unit, mi: Roll, t: Unit, opts: FireOpts, ev: GameEvent[]): { legsHit: boolean } {
   const cls: FireClass = mi.cls;
   const chance = chanceOf(s, a, mi, t, a, opts.reaction);
+  if (t.side !== a.side) a.flash = t.side; // FOG-5: the muzzle flash shows the shooter
   const arc = arcOf(t, t.facing, a);
   const shots: ShotEvent[] = [];
   const after: GameEvent[] = [];
@@ -371,6 +378,7 @@ function startPhase(s: BattleState, side: Side, ev: GameEvent[]): void {
   const before = s.smoke.length;
   s.smoke = s.smoke.filter((m) => m.side !== side);
   if (s.smoke.length !== before) ev.push({ type: 'smokeClear', side });
+  if (s.flares?.some((f) => f.side === side)) { s.flares = s.flares.filter((f) => f.side !== side); ev.push({ type: 'flareOut', side }); } // FOG-6
   for (const u of s.units) if (u.status.markedBy === side) u.status.markedBy = null; // MAN-9
   for (const u of s.units) if (u.side === side && u.grip) release(s, u, ev); // MAN-6
   for (const u of s.units) {
@@ -396,6 +404,7 @@ function endPhaseFor(s: BattleState, side: Side, ev: GameEvent[]): void {
   // NRV-2: walkers that end the phase next to an ally steady each other.
   for (const u of s.units) if (u.side === side && u.alive && s.units.some((a) => a.alive && a.side === side && a.id !== u.id && dist(a, u) === 1)) nerve(u, RULES.nerve.together, 'together', ev);
   for (const u of s.units) if (u.side === side && u.alive) { standDown(u); u.status.suppressed = false; }
+  for (const u of s.units) if (u.flash === side) u.flash = null; // FOG-5
 }
 
 /** After an order: a walker with no drive left stands down with no reserve (DRV-5). */
@@ -436,6 +445,22 @@ function walk(s: BattleState, u: Unit, path: Pos[], facing: Facing, ev: GameEven
     dirs.push(d);
     u.x = p.x; u.y = p.y; u.facing = d;
     seg.push({ ...p });
+    // FOG-8: an enemy the side could not see stands here: the walk stops on the tile before.
+    const lurker = s.units.find((o) => o.alive && o.side !== u.side && o.x === p.x && o.y === p.y);
+    if (lurker) {
+      // Back up to the last tile on the path that no other walker holds (an ally may be passed through, not stopped on).
+      let k = i - 1;
+      while (k > 0 && s.units.some((o) => o.alive && o.id !== u.id && o.x === path[k]!.x && o.y === path[k]!.y)) k--;
+      const stop = path[k]!;
+      u.x = stop.x; u.y = stop.y; u.facing = d;
+      while (seg.length > 1 && (seg[seg.length - 1]!.x !== stop.x || seg[seg.length - 1]!.y !== stop.y)) seg.pop();
+      dirs.length = Math.max(0, k);
+      ev.push({ type: 'walked', unit: u.id, path: seg, facing: d });
+      seg = [{ ...stop }];
+      ev.push({ type: 'ambush', unit: u.id, enemy: lurker.id, x: p.x, y: p.y });
+      lw.reacted = true; stopped = true;
+      break;
+    }
     if (s.units.some((o) => o.alive && o.id !== u.id && o.x === p.x && o.y === p.y)) continue; // passing through an ally
     for (const o of overwatchers(s, u, p)) {
       const mi = cheapestMode(o, o.overwatch!.slot)!;
@@ -448,7 +473,7 @@ function walk(s: BattleState, u: Unit, path: Pos[], facing: Facing, ev: GameEven
     }
   }
   if (u.alive && !stopped) u.facing = facing;
-  if (seg.length > 1 || !lw.reacted) ev.push({ type: 'walked', unit: u.id, path: seg, facing: u.facing });
+  if (seg.length > 1 || (!lw.reacted && !stopped)) ev.push({ type: 'walked', unit: u.id, path: seg, facing: u.facing });
   lw.steps = dirs.length;
   lw.dir = dirs.length && dirs.every((d) => d === dirs[0]) ? dirs[0]! : null;
   u.lastWalk = u.alive ? lw : null;
@@ -528,6 +553,13 @@ function stepInner(state: BattleState, action: Action): StepResult {
         s.smoke = s.smoke.filter((m) => !tiles.some((t) => t.x === m.x && t.y === m.y)).concat(tiles.map((t) => ({ ...t, side: u.side })));
         if (u.ammo !== null && mi.slot === 'P') u.ammo -= 1;
         ev.push({ type: 'smoke', unit: u.id, x: p.x, y: p.y, tiles });
+      } else if (mi.mode.effect === 'flare') { // FOG-6: range only, no sight needed
+        if (d < mi.min || d > mi.max) return reject(state, 'out of range');
+        const tiles: Pos[] = [];
+        for (let y = p.y - 1; y <= p.y + 1; y++) for (let x = p.x - 1; x <= p.x + 1; x++) if (inBounds(s, x, y)) tiles.push({ x, y });
+        s.flares = (s.flares ?? []).concat([{ x: p.x, y: p.y, side: u.side }]);
+        if (u.ammo !== null && mi.slot === 'P') u.ammo -= 1;
+        ev.push({ type: 'flare', unit: u.id, x: p.x, y: p.y, tiles });
       } else if (mi.mode.effect === 'overwatch') {
         const dir = dirTo(u, p);
         if (!dir || d > mi.weapon.def.max) return reject(state, 'a lane runs straight out in range');
@@ -576,7 +608,7 @@ function stepInner(state: BattleState, action: Action): StepResult {
       const r = maneuverRoll(action.id, slot);
       if (action.id === 'ghost-step') { // NRV-5 (Varga): a free walk after a fire order
         if (!isFacing(action.facing)) return reject(state, 'bad facing');
-        const path = reachable(s, u, stats(s, u).move, u, hasTrait(u, 'hop')).find((q) => q.x === tile!.x && q.y === tile!.y)!.path;
+        const path = knownReach(s, u, stats(s, u).move).find((q) => q.x === tile!.x && q.y === tile!.y)!.path;
         u.sigUsed = true;
         walk(s, u, path, action.facing, ev, 0, d.nerve ?? 0);
         if (u.lastWalk) u.lastWalk.sig = true;
@@ -608,8 +640,12 @@ function stepInner(state: BattleState, action: Action): StepResult {
       else if (action.id === 'mark') { t!.status.markedBy = u.side; ev.push({ type: 'status', unit: t!.id, status: 'marked' }); }
       else if (action.id === 'tow') {
         const mv = towMove(s, u, t!)!;
-        u.x = mv.tower.x; u.y = mv.tower.y; t!.x = mv.ally.x; t!.y = mv.ally.y;
-        ev.push({ type: 'tow', unit: u.id, ally: t!.id, x: u.x, y: u.y, ax: t!.x, ay: t!.y });
+        const lurker = unitAt(s, mv.tower.x, mv.tower.y);
+        if (lurker) ev.push({ type: 'ambush', unit: u.id, enemy: lurker.id, x: mv.tower.x, y: mv.tower.y }); // FOG-8: the tow does nothing
+        else {
+          u.x = mv.tower.x; u.y = mv.tower.y; t!.x = mv.ally.x; t!.y = mv.ally.y;
+          ev.push({ type: 'tow', unit: u.id, ally: t!.id, x: u.x, y: u.y, ax: t!.x, ay: t!.y });
+        }
       } else if (action.id === 'shunt') shunt(s, u, tile!, shuntDir(s, u, tile!)!, ev);
       else if (action.id === 'swing') { // LCK-2: open the bridge if it is closed, close it if it is open
         const tiles: Pos[] = [];
@@ -670,6 +706,7 @@ function stepInner(state: BattleState, action: Action): StepResult {
       return reject(state, 'unknown action');
   }
   sweepGrips(s, ev);
+  updateIntel(s);
   s.turnCount += 1;
   checkEnd(s, ev);
   return { state: s, events: ev };
@@ -771,9 +808,23 @@ export function legalActions(s: BattleState): Action[] {
   return out;
 }
 
-/** ARCH-4: what a side may see. No fog in mission 1 (PLAN Q3); the generator is hidden so no seat can read future rolls. */
-export function view(s: BattleState, _side: Side): BattleState {
-  return { ...s, rng: [0, 0, 0, 0] };
+/** FOG-7: each side's last sighting of each enemy walker. */
+function updateIntel(s: BattleState): void {
+  if (!s.intel) return;
+  for (const side of ['player', 'hostile'] as const) for (const w of s.units) {
+    if (w.side === side) continue;
+    if (!w.alive) { delete s.intel[side][w.id]; continue; }
+    if (seenBy(s, side, w)) s.intel[side][w.id] = { x: w.x, y: w.y };
+  }
+}
+
+/** ARCH-4, FOG-7: what a side may see. In daylight everything (PLAN Q3); at night, its own walkers, the enemies it sees,
+ * and its own intel. The generator is hidden so no seat can read future rolls. */
+export function view(s: BattleState, side: Side): BattleState {
+  if (!s.night) return { ...s, rng: [0, 0, 0, 0] };
+  const units = s.units.filter((w) => w.side === side || !w.alive || seenBy(s, side, w));
+  const intel = { player: {}, hostile: {}, [side]: { ...(s.intel?.[side] ?? {}) } } as Record<Side, Record<string, Pos>>;
+  return { ...s, units, intel, rng: [0, 0, 0, 0] };
 }
 
 export const isInside = (s: BattleState, p: Pos): boolean => inBounds(s, p.x, p.y);

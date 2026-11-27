@@ -21,7 +21,7 @@ for (const p of Object.values(PARTS.packs)) if (p.weapon && !PARTS.weapons[p.wea
 
 // Combat v2 (spec 15).
 const int = (n: unknown, lo: number, hi: number): boolean => typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
-const EFFECTS = new Set<ModeDef['effect']>(['pin', 'push', 'knockdown', 'stagger', 'overwatch', 'guard', 'smoke']);
+const EFFECTS = new Set<ModeDef['effect']>(['pin', 'push', 'knockdown', 'stagger', 'overwatch', 'guard', 'smoke', 'flare']);
 const NEEDS = new Set<ModeDef['needs']>(['still', 'charge', 'marked']);
 const KINDS = new Set<ManeuverKind>(['self', 'walk', 'trait', 'attack', 'stance', 'support', 'field', 'signature']);
 for (const [wid, w] of Object.entries(PARTS.weapons)) {
@@ -41,7 +41,7 @@ for (const [wid, w] of Object.entries(PARTS.weapons)) {
     if (m.pushes !== undefined && (!int(m.pushes, 1, 3) || m.effect !== 'push')) errs.push(`${at} pushes ${m.pushes} (1-3, push modes only)`);
     if (m.shots === 0 && !m.effect) errs.push(`${at} fires nothing and has no effect`);
     if (m.shots > 0 && w.class === 'shield' && (m.baseDmg === undefined || m.baseAcc === undefined || !m.class)) errs.push(`${at} shield mode needs class, baseAcc and baseDmg`);
-    if (m.effect === 'smoke' && w.class !== 'indirect') errs.push(`${at} smoke needs indirect fire`);
+    if ((m.effect === 'smoke' || m.effect === 'flare') && w.class !== 'indirect') errs.push(`${at} ${m.effect} needs indirect fire`);
   }
   if (w.class !== 'shield' && !modes.some((m) => m.shots > 0)) errs.push(`${wid} has no firing mode (RCT-2)`);
 }

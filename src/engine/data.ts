@@ -19,7 +19,7 @@ export interface ModeDef {
   /** MOD-7: how many tiles a push carries the target (default 1). */
   pushes?: number;
   needs?: 'still' | 'charge' | 'marked';
-  effect?: 'pin' | 'push' | 'knockdown' | 'stagger' | 'overwatch' | 'guard' | 'smoke' | 'grab';
+  effect?: 'pin' | 'push' | 'knockdown' | 'stagger' | 'overwatch' | 'guard' | 'smoke' | 'grab' | 'flare';
   target?: 'tile' | 'ally';
 }
 export type ManeuverKind = 'self' | 'walk' | 'trait' | 'attack' | 'stance' | 'support' | 'field' | 'signature';
@@ -95,6 +95,8 @@ export interface RulesDef {
   wagon: { roll: number; dmg: number; collide: number };
   stack: { toppleAt: number; dmg: number; reach: number };
   smokeRadius: number;
+  /** FOG-1: how far a walker sees at night. */
+  nightSight: number;
   cookOff: { self: number; adjacent: number };
   nerve: { max: number; steady: number; shaken: number; steadyHit: number; shakenHit: number; landHit: number; kill: number; together: number; hitSide: number; hitRear: number; pinned: number; knockedDown: number; allyLost: number };
   objects: Record<ObjKind, ObjDef>;

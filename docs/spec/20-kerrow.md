@@ -5,7 +5,7 @@
 | Slice | Ids | State |
 |---|---|---|
 | 6b the canal | LCK-1..8 | landed 2026-11-27 |
-| 6c night and fog | FOG-1..8 | in progress |
+| 6c night and fog | FOG-1..8 | landed 2026-11-27 |
 | 6d pilot levels | PLV-1..5 | |
 
 ## 1. The canal (LCK)

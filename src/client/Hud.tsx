@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MISSIONS, pack, pilot as pilotDef, RULES } from '../engine/data';
 import { dist } from '../engine/grid';
 import {
-  callable, fireBlock, living, maneuverBlock, maneuverPreview, maneuversOf, maxHp, modes, patchCost, pivotCost, preview, shaken, shuntDir, stats, steady,
+  callable, fireBlock, living, maneuverBlock, seenBy, maneuverPreview, maneuversOf, maxHp, modes, patchCost, pivotCost, preview, shaken, shuntDir, stats, steady,
   unitById, weapons, type ManeuverOption, type ModeInfo,
 } from '../engine/query';
 import type { Arc, BattleState, Facing, HitSlot, PartSlot, Unit } from '../engine/types';
@@ -120,7 +120,7 @@ function UnitCard({ s, u, compact }: { s: BattleState; u: Unit; compact?: boolea
           ))}
           {pack(u.build.pack).kind === 'repair' && <div className="wep"><span className="ws">PACK</span><span className="wn">{pack(u.build.pack).name}</span><span className="wd">Patch {patchCost()} · +{pack(u.build.pack).heal} · {u.charges} left</span></div>}
           {pack(u.build.pack).kind === 'sensor' && <div className="wep"><span className="ws">PACK</span><span className="wn">{pack(u.build.pack).name}</span><span className="wd">spots for mortars to {pack(u.build.pack).sensorRange} · Mark 1</span></div>}
-          <div className="wep"><span className="ws">MOVES</span><span className="wn">{maneuversOf(u).filter((m) => !['pivot', 'patch', 'mark', 'breakFree'].includes(m.id)).map((m) => `${m.def.name}${m.slot ? ` (${m.slot})` : ''}${m.def.kind === 'trait' ? '' : ` ${m.def.dp}`}${m.def.nerve ? `+${m.def.nerve}N` : ''}`).join(' · ')}</span></div>
+          <div className="wep"><span className="ws">MOVES</span><span className="wn">{maneuversOf(u).filter((m) => !['pivot', 'patch', 'mark', 'breakFree', 'shunt', 'swing'].includes(m.id)).map((m) => `${m.def.name}${m.slot ? ` (${m.slot})` : ''}${m.def.kind === 'trait' ? '' : ` ${m.def.dp}`}${m.def.nerve ? `+${m.def.nerve}N` : ''}`).join(' · ')}</span></div>
         </div>
       )}
       {canToggle && (
@@ -295,7 +295,7 @@ export function Hud() {
   if (!s || !liveState) return null;
   const m = MISSIONS[s.mission]!;
   const sel = selected ? unitById(s, selected) : null;
-  const hov = hover ? s.units.find((u) => u.alive && u.x === hover.x && u.y === hover.y) ?? null : null;
+  const hov = hover ? s.units.find((u) => u.alive && u.x === hover.x && u.y === hover.y && seenBy(s, 'player', u)) ?? null : null;
   const tgt = target ? unitById(s, target) : null;
   const myPhase = s.phase === 'player' && liveState.phase === 'player' && !liveState.result;
   const canAct = myPhase && !presenting && sel && sel.side === 'player' && sel.alive && !sel.done;

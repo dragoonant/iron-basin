@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
-import { maxHp } from '../../engine/query';
+import { maxHp, seenBy } from '../../engine/query';
 import type { PartSlot, Unit } from '../../engine/types';
 import { anchors, anims } from '../presenter';
 import { useGame } from '../store';
@@ -28,6 +28,11 @@ function Walker({ u }: { u: Unit }) {
     if (!a || !shown) return;
     const p = tileToWorld(a.x, a.y, a.level);
     model.root.position.copy(p);
+    // FOG-4: at night an enemy the player cannot see is not drawn (its "?" shows where it was last seen).
+    const st = useGame.getState().shown!;
+    const hidden = !!st.night && shown.side !== 'player' && shown.alive && !seenBy(st, 'player', shown);
+    model.root.visible = !hidden; ring.visible = !hidden && a.fall <= 0;
+    if (hidden) return;
     // Turn smoothly toward the facing.
     let d = a.facing - model.root.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI;
@@ -86,7 +91,35 @@ function RingFollow({ ring, id }: { ring: THREE.Mesh; id: string }) {
   return null;
 }
 
+/** FOG-7: a grease-pencil "?" where each unseen enemy was last seen. */
+function questionTexture(): THREE.Texture {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.strokeStyle = 'rgba(224,53,42,0.95)'; g.lineWidth = 7; g.setLineDash([14, 9]);
+  g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = 'rgba(255,190,170,0.95)'; g.font = 'bold 76px Kalam, cursive'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 64, 70);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function IntelMarks() {
+  const sprites = useMemo(() => { const map = questionTexture(); return Array.from({ length: 8 }, () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, depthWrite: false, transparent: true, opacity: 0.9 })); sp.scale.set(0.8, 0.8, 0.8); sp.visible = false; sp.raycast = () => {}; return sp; }); }, []);
+  useFrame(() => {
+    const st = useGame.getState().shown;
+    const marks: { x: number; y: number }[] = [];
+    if (st?.night) for (const [id, p] of Object.entries(st.intel?.player ?? {})) {
+      const w = st.units.find((x) => x.id === id);
+      if (w && w.alive && !seenBy(st, 'player', w)) marks.push(p);
+    }
+    sprites.forEach((sp, i) => {
+      const m = marks[i];
+      if (!m || !st) { sp.visible = false; return; }
+      const wp = tileToWorld(m.x, m.y, st.tiles[m.y * st.w + m.x]?.h ?? 0);
+      sp.position.set(wp.x, wp.y + 0.55, wp.z); sp.visible = true;
+    });
+  });
+  return <>{sprites.map((sp, i) => <primitive key={i} object={sp} />)}</>;
+}
+
 export function Walkers() {
   const units = useGame((s) => s.shown?.units ?? []);
-  return <>{units.map((u) => <Walker key={u.id} u={u} />)}</>;
+  return <>{units.map((u) => <Walker key={u.id} u={u} />)}<IntelMarks /></>;
 }

@@ -419,6 +419,14 @@
           "shots": 0,
           "effect": "smoke",
           "target": "tile"
+        },
+        {
+          "id": "flare",
+          "name": "Flare",
+          "dp": 2,
+          "shots": 0,
+          "effect": "flare",
+          "target": "tile"
         }
       ]
     },

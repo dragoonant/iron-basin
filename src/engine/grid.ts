@@ -87,10 +87,11 @@ export interface Reach { x: number; y: number; cost: number; path: Pos[] }
 
 /** TRN-3: tiles a walker can end on within `budget`, with paths. Enemies block; allies can be passed but not ended on.
  * Dijkstra over a small binary heap; ties resolve in neighbour order (E, W, S, N), so paths are deterministic. */
-export function reachable(s: BattleState, u: Unit, budget: number, from: Pos = u, hop = false): Reach[] {
+export function reachable(s: BattleState, u: Unit, budget: number, from: Pos = u, hop = false, known?: (o: Unit) => boolean): Reach[] {
   const n = s.w * s.h;
   const occ = new Array<Unit | null>(n).fill(null);
-  for (const o of s.units) if (o.alive) occ[o.y * s.w + o.x] = o;
+  // FOG-8: a walk is planned on what the side knows; walkers it cannot see do not block the plan.
+  for (const o of s.units) if (o.alive && (!known || known(o))) occ[o.y * s.w + o.x] = o;
   const cost = new Array<number>(n).fill(Infinity);
   const prev = new Int32Array(n).fill(-1);
   const order = new Int32Array(n).fill(0);

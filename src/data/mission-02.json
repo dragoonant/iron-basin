@@ -227,6 +227,7 @@
   ]
  ],
  "gateBonus": 1500,
+ "night": true,
  "units": [
   {
    "id": "marlow",

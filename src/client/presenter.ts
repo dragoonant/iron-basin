@@ -135,6 +135,8 @@ function start(ev: GameEvent): Track {
       const gap = 0.24;
       const fired = new Set<number>();
       const landed = new Set<number>();
+      // FOG-5: the shooter shows at once in the muzzle flash.
+      { const tside = unitById(s, ev.target)?.side; if (tside) mutateShown((c) => { const x = c.units.find((v) => v.id === ev.unit); if (x && x.side !== tside) x.flash = tside; }); }
       const lead = ev.reaction === 'return' ? 'Return fire: ' : ev.reaction === 'overwatch' ? 'Overwatch: ' : '';
       const arcNote = ev.arc === 'rear' ? ', from the rear' : ev.arc === 'front' ? '' : ', on the flank';
       g.note(man ? `${lead}${name(ev.unit)}: ${man.name} at ${name(ev.target)} (${ev.chance}%${arcNote}).` : `${lead}${name(ev.unit)} fires ${w.name}, ${modeName(ev.weapon, ev.mode)}, at ${name(ev.target)} (${ev.chance}%${arcNote}).`, unitById(s, ev.unit)?.side ?? 'note');
@@ -352,6 +354,26 @@ function start(ev: GameEvent): Track {
         tick: (t) => { if (t > 0.9 && !laid) { laid = true; for (const p of ev.tiles) { const w = tileToWorld(p.x, p.y, levelAt(s, p.x, p.y)); w.y += 0.5; addFx({ kind: 'smoke', a: w, b: w, dur: 2.5, size: 0.9 }); } } },
         done: () => mutateShown((c) => { c.smoke = c.smoke.filter((sm) => !ev.tiles.some((p) => p.x === sm.x && p.y === sm.y)).concat(ev.tiles.map((p) => ({ ...p, side: au?.side ?? 'player' }))); }),
       };
+    }
+    case 'flare': {
+      const m = muzzlePos(ev.unit, 'P');
+      const land = tileToWorld(ev.x, ev.y, levelAt(s, ev.x, ev.y)); land.y += 2.2;
+      audio.play('mortar-launch');
+      addFx({ kind: 'flash', a: m, b: m, dur: 0.09, size: 0.35 });
+      addFx({ kind: 'shell', a: m, b: land, dur: 0.8, color: '#fff2c8' });
+      g.note(`${name(ev.unit)} puts up a flare.`, unitById(s, ev.unit)?.side ?? 'note');
+      return { t: 0, dur: 0.9, tick: () => {}, done: () => mutateShown((c) => { c.flares = (c.flares ?? []).concat([{ x: ev.x, y: ev.y, side: unitById(s, ev.unit)?.side ?? 'player' }]); }) };
+    }
+    case 'flareOut': {
+      mutateShown((c) => { c.flares = (c.flares ?? []).filter((f) => f.side !== ev.side); });
+      return { t: 0, dur: 0.05, tick: () => {}, done: () => {} };
+    }
+    case 'ambush': {
+      const pos = tileToWorld(ev.x, ev.y, levelAt(s, ev.x, ev.y)); pos.y += 1;
+      audio.play('armor-ping');
+      addFx({ kind: 'float', a: pos, b: pos, dur: 1.4, text: 'CONTACT!', color: '#ff9c90' });
+      g.note(`${name(ev.unit)} runs into ${name(ev.enemy)} in the dark.`, 'note');
+      return { t: 0, dur: 0.7, tick: () => {}, done: () => {} };
     }
     case 'smokeClear': {
       mutateShown((c) => { c.smoke = c.smoke.filter((sm) => sm.side !== ev.side); });

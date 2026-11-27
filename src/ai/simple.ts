@@ -20,6 +20,8 @@ export function distanceField(s: BattleState, side: Side): number[] {
   const d = new Array<number>(s.w * s.h).fill(Infinity);
   const q: number[] = [];
   for (const e of s.units) if (e.alive && e.side !== side) { const i = e.y * s.w + e.x; d[i] = 0; q.push(i); }
+  // FOG-7: at night, head for where unseen enemies were last seen.
+  for (const [id, p] of Object.entries(s.intel?.[side] ?? {})) if (!s.units.some((e) => e.id === id)) { const i = p.y * s.w + p.x; if (d[i] !== 0) { d[i] = 0; q.push(i); } }
   while (q.length) {
     const i = q.shift()!;
     const x = i % s.w, y = (i - x) / s.w;
