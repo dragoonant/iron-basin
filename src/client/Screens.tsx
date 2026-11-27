@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { MISSIONS } from '../engine/data';
-import { campaignDone, currentMission, itemName } from '../engine/campaign';
+import { MISSIONS, PARTS, pilot as pilotDef } from '../engine/data';
+import { campaignDone, currentMission, itemName, levelOf } from '../engine/campaign';
 import { audio } from './audio';
 import { preloadTextures } from './board/textures';
 import { Portrait } from './Hud';
@@ -187,12 +187,27 @@ export function Debrief() {
           <tr><td>Lantern walkers lost (pilots ejected)</td><td>{r.lost.player}</td></tr>
           {win && <><tr><td>Contract fee</td><td>{r.credits.fee.toLocaleString()} cr</td></tr><tr><td>Kill bounty</td><td>{r.credits.bounty.toLocaleString()} cr</td></tr><tr><td>Speed bonus</td><td>{r.credits.bonus ? `${r.credits.bonus.toLocaleString()} cr` : 'missed'}</td></tr>{m.gateBonus ? <tr><td>Gate bonus</td><td>{r.credits.gate ? `${r.credits.gate.toLocaleString()} cr` : 'the gate is down'}</td></tr> : null}<tr className="sum"><td>Paid</td><td>{total.toLocaleString()} cr</td></tr></>}
         </tbody></table>
+        <XpGains />
         {win && <><div className="k">SALVAGE</div><ul className="salvage">{[...grouped.entries()].map(([k, n]) => { const [kind, id] = k.split(':') as ['arm', string]; return <li key={k}><b>{n}×</b> {itemName(kind, id)}</li>; })}</ul></>}
         <div className="brief-buttons">
           {win ? <button className="primary" data-testid="to-hangar" onClick={() => { audio.play('salvage'); useGame.getState().setScreen('hangar'); }}>To the hangar ({c.credits.toLocaleString()} cr)</button>
             : <><button className="primary" data-testid="retry" onClick={() => { audio.music('battle', 1200); audio.loop('rain-loop', 1200); useGame.getState().retry(); }}>Retry the contract</button><button className="ghost" onClick={() => useGame.getState().setScreen('title')}>Title</button></>}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** PLV-1, PLV-2: what each pilot earned in the battle, and any level reached. */
+function XpGains() {
+  const c = useGame((g) => g.campaign), pre = useGame((g) => g.preBattle);
+  if (!pre) return null;
+  const rows = c.roster.map((r) => { const a = pre.xp?.[r.pilot] ?? 0, b = c.xp?.[r.pilot] ?? 0; return { id: r.pilot, gain: b - a, up: levelOf(b) > levelOf(a), level: levelOf(b) }; }).filter((x) => x.gain > 0);
+  if (!rows.length) return null;
+  return (
+    <div className="xp-gains" data-testid="xp-gains">
+      <div className="k">EXPERIENCE</div>
+      <ul className="salvage">{rows.map((x) => <li key={x.id}><b>{pilotDef(x.id).call}</b> +{x.gain} XP{x.up ? ` · level ${x.level}${x.level === 2 && pilotDef(x.id).signature2 ? `: ${PARTS.maneuvers[pilotDef(x.id).signature2!]?.name} unlocked` : ''}` : ''}</li>)}</ul>
     </div>
   );
 }

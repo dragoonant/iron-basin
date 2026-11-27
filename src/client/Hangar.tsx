@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useState } from 'react';
-import { RULES, pilot as pilotDef } from '../engine/data';
-import { equip, itemMaxHp, itemName, repair, repairAllCost, repairCost, repaint, walkerSummary, type Campaign, type EquipSlot, type Item, type RosterWalker } from '../engine/campaign';
+import { PARTS, RULES, pilot as pilotDef } from '../engine/data';
+import { equip, itemMaxHp, itemName, pilotRecord, repair, repairAllCost, repairCost, repaint, walkerSummary, type Campaign, type EquipSlot, type Item, type RosterWalker } from '../engine/campaign';
 import type { PaintSlot, PartSlot } from '../engine/types';
 import { audio } from './audio';
 import { buildWalker, disposeWalker, setWear } from './board/kit';
@@ -129,6 +129,7 @@ export function Hangar() {
         })}
         {repairAllCost(r) > 0 && <button className="wide" data-testid="repair-all" onClick={() => { let cc: Campaign | string = c; for (const p of ['body', 'armL', 'armR', 'legs'] as PartSlot[]) if (typeof cc !== 'string' && repairCost(cc.roster.find((x) => x.pilot === pilot)!, p) > 0) cc = repair(cc, pilot, p); apply(cc, 'repair'); }}>Repair everything ({repairAllCost(r)} cr)</button>}
         {msg && <div className="save-warn">{msg}</div>}
+        {(() => { const pr = pilotRecord(c, pilot); return <div className="stats level" data-testid="level"><b>LEVEL</b> {pr.level} <b>XP</b> {pr.xp}{pr.next !== null ? ` (next at ${pr.next})` : ''} <b>SIGNATURES</b> {pr.signatures.join(' · ')}{pr.level < 2 && pilotDef(pilot).signature2 ? ` · level 2: ${PARTS.maneuvers[pilotDef(pilot).signature2!]?.name}` : ''}</div>; })()}
         <div className="stats moves" data-testid="moves"><b>MOVES</b> {sum.moves.length ? sum.moves.join(' · ') : 'none from parts'}</div>
         <div className="weps">{sum.weapons.map((w) => <div key={w.slot} className="wep"><span className="ws">{w.slot === 'P' ? 'PACK' : w.slot === 'L' ? 'L.HAND' : 'R.HAND'}</span><span className="wn">{w.name}</span><span className="wd">{w.cls === 'shield' ? 'guard' : `${w.range[0]}-${w.range[1]} · acc ${w.acc}`} · {w.modes.map((m) => `${m.name} ${m.dp} DP${m.shots ? ` ${m.shots}×${m.dmg}` : ''}`).join(' · ')}</span></div>)}</div>
       </div>

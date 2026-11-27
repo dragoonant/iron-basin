@@ -1,6 +1,8 @@
 // The Kerrow Locks (docs/spec/20-kerrow.md). tests/coverage.test.ts checks that every spec 20 id appears here.
 import { describe, expect, it } from 'vitest';
-import { RULES } from '../src/engine/data';
+import { PILOTS, RULES } from '../src/engine/data';
+import { applyResult, deployFrom, levelOf, newCampaign, pilotRecord } from '../src/engine/campaign';
+import { runBattle } from '../src/sim/run';
 import { hasLos, reachable, tileAt } from '../src/engine/grid';
 import { fireBlock, litAt, maneuverBlock, overwatchers, seenBy, sees, stats } from '../src/engine/query';
 import { newBattle, step, view } from '../src/engine/step';
@@ -185,5 +187,56 @@ describe('night and fog (slice 6c)', () => {
     expect(r.events.some((e) => e.type === 'ambush' && e.enemy === 'dir-2')).toBe(true);
     expect([u(r.state, 'marlow').x, u(r.state, 'marlow').y]).toEqual([9, 14]);
     no(r.state, { type: 'undoWalk', unit: 'marlow' });
+  });
+});
+
+describe('pilot levels (slice 6d)', () => {
+  const won = () => { for (let seed = 1; seed < 40; seed++) { const r = runBattle(seed, 'normal', 'random', false); if (r.state.result?.winner === 'player') return r.state; } throw new Error('no win'); };
+  it('PLV-1 experience for surviving, for kills, and for the win', () => {
+    const b = won();
+    const c = applyResult(newCampaign(), b);
+    for (const w of b.units.filter((x) => x.side === 'player')) {
+      expect(c.xp![w.pilot]).toBe((w.alive ? RULES.levels.survive : 0) + w.kills * RULES.levels.kill + RULES.levels.win);
+    }
+    expect(b.units.filter((x) => x.side === 'player').reduce((a, w) => a + w.kills, 0)).toBe(b.result!.lost.hostile);
+  });
+  it('PLV-2 a level for each threshold reached', () => {
+    const [a, b2, c3] = RULES.levels.thresholds as [number, number, number];
+    expect([levelOf(0), levelOf(a - 1), levelOf(a), levelOf(b2), levelOf(c3), levelOf(99)]).toEqual([1, 1, 2, 3, 4, 4]);
+  });
+  it('PLV-3 each level above 1 adds a starting nerve', () => {
+    const c = newCampaign(); c.xp = { marlow: RULES.levels.thresholds[1]! };
+    const s = newBattle('marrow-yard', 1, deployFrom(c));
+    expect(u(s, 'marlow')).toMatchObject({ level: 3, nerve: PILOTS.marlow!.nerve + 2 });
+    expect(u(s, 'okonjo')).toMatchObject({ level: 1, nerve: PILOTS.okonjo!.nerve });
+  });
+  it('PLV-4 level 2 unlocks the second signature, once per battle, apart from the first', () => {
+    const c = newCampaign(); c.xp = { marlow: 3, okonjo: 3, varga: 3, haldane: 3 };
+    let s = newBattle('marrow-yard', 1, deployFrom(c));
+    for (const w of s.units) if (w.side === 'player') w.nerve = RULES.nerve.max;
+    place(s, 'marlow', 5, 12); place(s, 'okonjo', 6, 12); place(s, 'haldane', 7, 12); place(s, 'varga', 4, 12);
+    u(s, 'okonjo').nerve = 6;
+    s = ok(s, { type: 'maneuver', unit: 'marlow', id: 'rally' }).state;
+    expect(u(s, 'okonjo').nerve).toBe(8);
+    u(s, 'marlow').nerve = RULES.nerve.max; // the first signature keeps its own use
+    expect(maneuverBlock(s, u(s, 'marlow'), 'call-the-line', null, null, null)).toBe(null);
+    no(s, { type: 'maneuver', unit: 'marlow', id: 'rally' });
+    s = ok(s, { type: 'maneuver', unit: 'okonjo', id: 'bulwark' }).state;
+    expect(u(s, 'okonjo').status).toMatchObject({ braced: true, planted: true });
+    u(s, 'okonjo').hp.armR = 0;
+    s = ok(s, { type: 'maneuver', unit: 'haldane', id: 'field-weld', target: 'okonjo', part: 'armR' }).state;
+    expect(u(s, 'okonjo').hp.armR).toBe(RULES.levels.weldHp);
+    for (const w of s.units) if (w.side === 'hostile') { w.x = 4 + (w.id.length % 3); w.y = 7; }
+    place(s, 'dir-2', 4, 8);
+    s = ok(s, { type: 'maneuver', unit: 'varga', id: 'sweep' }).state;
+    expect(u(s, 'dir-2').status.markedBy).toBe('player');
+    const fresh1 = newBattle('marrow-yard', 1);
+    u(fresh1, 'marlow').nerve = RULES.nerve.max;
+    expect(maneuverBlock(fresh1, u(fresh1, 'marlow'), 'rally', null, null, null)).toBe('not fitted');
+  });
+  it('PLV-5 the hangar record shows level, experience, the next threshold and the signatures', () => {
+    const c = newCampaign(); c.xp = { marlow: 4 };
+    expect(pilotRecord(c, 'marlow')).toEqual({ xp: 4, level: 2, next: 7, signatures: ['Call the line', 'Rally'] });
+    expect(pilotRecord(c, 'okonjo')).toMatchObject({ level: 1, next: 3, signatures: ['Shoulder to shoulder'] });
   });
 });

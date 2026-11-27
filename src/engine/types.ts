@@ -114,6 +114,12 @@ export interface Unit {
   usedThisPhase: string[];
   /** NRV-5: the pilot's signature has been used this battle. */
   sigUsed: boolean;
+  /** PLV-4: the second signature (level 2 and up) has been used this battle. */
+  sig2Used: boolean;
+  /** PLV-2: the pilot's level for this battle (1 when the campaign has none). */
+  level: number;
+  /** PLV-1: walkers this walker destroyed this battle. */
+  kills: number;
   /** NRV-5 (Call the line): reserve added on top when this walker stands down this phase. */
   bonusReserve: number;
   alive: boolean;

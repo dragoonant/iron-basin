@@ -163,5 +163,16 @@
   "impassable": [
     "deep"
   ],
-  "nightSight": 5
+  "nightSight": 5,
+  "levels": {
+    "thresholds": [
+      3,
+      7,
+      12
+    ],
+    "survive": 1,
+    "kill": 2,
+    "win": 1,
+    "weldHp": 25
+  }
 }

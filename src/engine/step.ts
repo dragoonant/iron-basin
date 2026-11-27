@@ -12,7 +12,7 @@ import type {
   Action, BattleState, Build, Facing, GameEvent, HitSlot, PaintSlot, PartSlot, Paint, Reaction, Result, ShotEvent, Side, StepResult, Tile, Unit, WeaponSlot,
 } from './types';
 
-export interface Deploy { id: string; pilot: string; side: Side; x: number; y: number; facing?: Facing; role?: string; build: Build; hp?: Partial<Record<PartSlot, number>>; paint?: Partial<Record<PaintSlot, Paint>> }
+export interface Deploy { id: string; pilot: string; side: Side; x: number; y: number; facing?: Facing; role?: string; level?: number; build: Build; hp?: Partial<Record<PartSlot, number>>; paint?: Partial<Record<PaintSlot, Paint>> }
 
 export function parseMap(m: MissionDef): Tile[] {
   const tiles: Tile[] = [];
@@ -41,7 +41,8 @@ export function makeUnit(d: Deploy): Unit {
     paint: { body: base, armL: base, armR: base, legs: base, pack: base, ...(d.paint ?? {}) },
     hp: { body: 0, armL: 0, armR: 0, legs: 0 }, ammo: null, charges: 0,
     drive: 0, reserve: RULES.drive.startReserve, done: false, fired: [], walked: false, lastWalk: null, holdFire: false,
-    nerve: pilot(d.pilot).nerve, status: noStatus(), overwatch: null, guarding: [], grip: null, flash: null, usedThisPhase: [], sigUsed: false, bonusReserve: 0, alive: true,
+    nerve: Math.min(RULES.nerve.max, pilot(d.pilot).nerve + (d.level ?? 1) - 1), // PLV-3
+    status: noStatus(), overwatch: null, guarding: [], grip: null, flash: null, usedThisPhase: [], sigUsed: false, sig2Used: false, level: d.level ?? 1, kills: 0, bonusReserve: 0, alive: true,
   };
   for (const p of ['body', 'armL', 'armR', 'legs'] as const) u.hp[p] = Math.min(maxHp(u, p), d.hp?.[p] ?? maxHp(u, p));
   const pk = pack(u.build.pack);
@@ -109,6 +110,7 @@ function destroy(s: BattleState, t: Unit, by: string, ev: GameEvent[]): void {
   ev.push({ type: 'destroyed', unit: t.id, by });
   // NRV-2: credit for the kill; allies that see it lose nerve.
   const killer = unitById(s, by);
+  if (killer && killer.side !== t.side) killer.kills = (killer.kills ?? 0) + 1; // PLV-1
   if (killer && killer.alive && killer.side !== t.side) nerve(killer, RULES.nerve.kill, 'kill', ev);
   for (const a of s.units) if (a.alive && a.side === t.side && a.id !== t.id && hasLos(s, a, t)) nerve(a, RULES.nerve.allyLost, 'allyLost', ev);
   if (t.side !== 'hostile') return;
@@ -616,6 +618,9 @@ function stepInner(state: BattleState, action: Action): StepResult {
         settle(u);
         break;
       }
+      if (action.id === 'field-weld') { // PLV-4 (Haldane): a lost arm back to weldHp
+        if (!t || (action.part !== 'armL' && action.part !== 'armR') || t.hp[action.part] > 0) return reject(state, 'name a lost arm');
+      }
       if (action.id === 'hot-patch') { // NRV-5 (Haldane): Patch at range, with nerve for the patched pilot
         const part = action.part;
         if (!t || !part || !PARTS.includes(part) || t.hp[part] <= 0 || t.hp[part] >= maxHp(t, part)) return reject(state, 'name a damaged, not lost part');
@@ -654,7 +659,7 @@ function stepInner(state: BattleState, action: Action): StepResult {
         ev.push({ type: 'bridge', unit: u.id, open, tiles });
       }
       else if (d.kind === 'signature') {
-        u.sigUsed = true;
+        if (action.id === pilot(u.pilot).signature2) u.sig2Used = true; else u.sigUsed = true;
         const allies = s.units.filter((a) => a.alive && a.side === u.side && a.id !== u.id);
         let targets: string[] = [];
         if (action.id === 'call-the-line') { // Marlow: +1 reserve to every ally in her sight
@@ -669,6 +674,19 @@ function stepInner(state: BattleState, action: Action): StepResult {
           t!.hp[part] += amount; u.charges -= 1;
           ev.push({ type: 'repaired', unit: u.id, target: t!.id, part, amount });
           nerve(t!, d.nerveGift ?? 0, 'gift', ev);
+          targets = [t!.id];
+        } else if (action.id === 'rally') { // PLV-4 (Marlow): +2 nerve to every ally in her sight
+          for (const a of allies) if (hasLos(s, u, a)) { nerve(a, d.nerveGift ?? 2, 'gift', ev); targets.push(a.id); }
+        } else if (action.id === 'bulwark') { // PLV-4 (Okonjo): Brace and Plant at once, and +1 reserve
+          u.status.braced = true; u.status.planted = true; u.bonusReserve += 1;
+        } else if (action.id === 'sweep') { // PLV-4 (Varga): Mark every enemy she sees in sensor range
+          const range = pack(u.build.pack).sensorRange ?? 0;
+          for (const e of s.units) if (e.alive && e.side !== u.side && dist(u, e) <= range && hasLos(s, u, e) && seenBy(s, u.side, e)) { e.status.markedBy = u.side; targets.push(e.id); }
+        } else if (action.id === 'field-weld') {
+          const part = action.part as 'armL' | 'armR';
+          const amount = Math.min(RULES.levels.weldHp, maxHp(t!, part));
+          t!.hp[part] = amount;
+          ev.push({ type: 'repaired', unit: u.id, target: t!.id, part, amount });
           targets = [t!.id];
         } else if (action.id === 'drill-tempo') { // Hallen: +1 drive now to every ally in his sight still acting
           for (const a of allies) if (!a.done && hasLos(s, u, a)) { a.drive += d.gain ?? 0; targets.push(a.id); }
@@ -797,6 +815,7 @@ export function legalActions(s: BattleState): Action[] {
       const base = { type: 'maneuver' as const, unit: u.id, id: m.id, ...(m.slot ? { slot: m.slot } : {}) };
       if (m.id === 'dash') { if (maneuverBlock(s, u, 'dash', null, null, null) === 'out of reach') for (const r of dashRange(s, u)) if (r.x !== u.x || r.y !== u.y) for (const f of FACINGS) out.push({ ...base, x: r.x, y: r.y, facing: f }); }
       else if (m.id === 'ghost-step') { for (const r of reachable(s, u, stats(s, u).move, u, hasTrait(u, 'hop'))) if (!maneuverBlock(s, u, m.id, null, null, r)) for (const f of FACINGS) out.push({ ...base, x: r.x, y: r.y, facing: f }); }
+      else if (m.id === 'field-weld') { for (const t of s.units) if (!maneuverBlock(s, u, m.id, null, t, null)) for (const p of ['armL', 'armR'] as const) if (t.hp[p] <= 0) out.push({ ...base, target: t.id, part: p }); }
       else if (m.id === 'hot-patch') { for (const t of s.units) if (!maneuverBlock(s, u, m.id, null, t, null)) for (const p of PARTS) if (t.hp[p] > 0 && t.hp[p] < maxHp(t, p)) out.push({ ...base, target: t.id, part: p }); }
       else if (m.def.kind === 'attack' || m.id === 'mark' || m.id === 'tow') { for (const t of s.units) if (!maneuverBlock(s, u, m.id, m.slot, t, null)) out.push({ ...base, target: t.id }); }
       else if (m.id === 'shunt') { for (const f of FACINGS) { const p = ahead(u, f); if (!maneuverBlock(s, u, 'shunt', null, null, p)) out.push({ ...base, x: p.x, y: p.y }); } }

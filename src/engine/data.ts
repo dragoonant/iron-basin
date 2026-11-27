@@ -31,7 +31,7 @@ export interface ManeuverDef {
   needs?: 'emptyHand' | 'emptyHand+rubble' | 'grabbed' | 'arm';
   moveBonus?: number; evade?: number; gain?: number; strain?: number; range?: number; nerveGift?: number;
 }
-export interface PilotDef { name: string; call: string; skill: number; evade: number; side: Side; nerve: number; signature: string | null }
+export interface PilotDef { name: string; call: string; skill: number; evade: number; side: Side; nerve: number; signature: string | null; /** PLV-4: unlocked at level 2. */ signature2?: string | null }
 export interface ObjDef { hp: number; blocksSight: boolean; cover: boolean; breakable: boolean }
 export interface MissionUnit { id: string; pilot: string; side: Side; x: number; y: number; facing: Facing; role?: string; build: Build }
 /** A briefing line: who speaks, what, and whether the region map or the field plan is up. */
@@ -97,6 +97,8 @@ export interface RulesDef {
   smokeRadius: number;
   /** FOG-1: how far a walker sees at night. */
   nightSight: number;
+  /** PLV-1, PLV-2. */
+  levels: { thresholds: number[]; survive: number; kill: number; win: number; weldHp: number };
   cookOff: { self: number; adjacent: number };
   nerve: { max: number; steady: number; shaken: number; steadyHit: number; shakenHit: number; landHit: number; kill: number; together: number; hitSide: number; hitRear: number; pinned: number; knockedDown: number; allyLost: number };
   objects: Record<ObjKind, ObjDef>;
@@ -124,5 +126,5 @@ export const arm = (id: string): ArmDef => PARTS.arms[id] ?? PARTS.arms['arm-lan
 export const legs = (id: string): LegsDef => PARTS.legs[id] ?? PARTS.legs['legs-lantern-m']!;
 export const pack = (id: string): PackDef => PARTS.packs[id] ?? PARTS.packs['pack-none']!;
 export const weapon = (id: string | null): WeaponDef | null => (id ? PARTS.weapons[id] ?? null : null);
-export const pilot = (id: string): PilotDef => PILOTS[id] ?? { name: id, call: id, skill: 0, evade: 0, side: 'hostile', nerve: 6, signature: null };
+export const pilot = (id: string): PilotDef => PILOTS[id] ?? { name: id, call: id, skill: 0, evade: 0, side: 'hostile', nerve: 6, signature: null, signature2: null };
 export const maneuver = (id: string): ManeuverDef | null => PARTS.maneuvers[id] ?? null;

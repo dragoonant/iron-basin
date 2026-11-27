@@ -188,8 +188,15 @@ export function markPlan(s: BattleState, u: Unit): Action | null {
 
 /** NRV-5: a signature worth using now, if any. */
 export function signaturePlan(s: BattleState, u: Unit, when: 'start' | 'end' | 'afterFire'): Action | null {
-  const sig = maneuversOf(u).find((m) => m.def.kind === 'signature');
-  if (!sig) return null;
+  for (const sig of maneuversOf(u).filter((m) => m.def.kind === 'signature')) {
+    const a = oneSignature(s, u, when, sig.id);
+    if (a) return a;
+  }
+  return null;
+}
+
+function oneSignature(s: BattleState, u: Unit, when: 'start' | 'end' | 'afterFire', id: string): Action | null {
+  const sig = { id };
   const allies = living(s, u.side).filter((a) => a.id !== u.id);
   const near = s.units.some((e) => e.alive && e.side !== u.side && dist(e, u) <= 6);
   const base = { type: 'maneuver' as const, unit: u.id, id: sig.id };
@@ -203,6 +210,21 @@ export function signaturePlan(s: BattleState, u: Unit, when: 'start' | 'end' | '
       for (const p of ['body', 'legs', 'armR', 'armL'] as const) { const m = maxHp(a, p) - a.hp[p]; if (a.hp[p] > 0 && m > miss) { miss = m; best = { ...base, target: a.id, part: p }; } }
     }
     return best;
+  }
+  // PLV-4: the second signatures.
+  if (when === 'end' && sig.id === 'rally' && !maneuverBlock(s, u, sig.id, null, null, null) && allies.filter((a) => hasLos(s, u, a) && a.nerve < RULES.nerve.steady && a.nerve + 2 >= RULES.nerve.steady).length >= 1 && near) return base;
+  if (when === 'end' && sig.id === 'bulwark' && !maneuverBlock(s, u, sig.id, null, null, null) && near && !u.status.braced) return base;
+  if (when === 'start' && sig.id === 'sweep' && !maneuverBlock(s, u, sig.id, null, null, null)) {
+    const range = pack(u.build.pack).sensorRange ?? 0;
+    const n = s.units.filter((e) => e.alive && e.side !== u.side && dist(u, e) <= range && hasLos(s, u, e) && e.status.markedBy !== u.side).length;
+    if (n >= 2 && allies.some((a) => !a.done)) return base;
+  }
+  if (when === 'end' && sig.id === 'field-weld') {
+    for (const a of [u, ...allies]) {
+      if (maneuverBlock(s, u, sig.id, null, a, null)) continue;
+      const part = a.hp.armR <= 0 && a.build.wR ? 'armR' : a.hp.armL <= 0 && a.build.wL ? 'armL' : a.hp.armR <= 0 ? 'armR' : 'armL';
+      return { ...base, target: a.id, part };
+    }
   }
   if (when === 'afterFire' && sig.id === 'ghost-step') {
     const here = threatAt(s, u, u, u.facing);

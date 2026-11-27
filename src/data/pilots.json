@@ -6,7 +6,8 @@
     "evade": 5,
     "side": "player",
     "nerve": 7,
-    "signature": "call-the-line"
+    "signature": "call-the-line",
+    "signature2": "rally"
   },
   "okonjo": {
     "name": "Dace Okonjo",
@@ -15,7 +16,8 @@
     "evade": 0,
     "side": "player",
     "nerve": 6,
-    "signature": "shoulder-to-shoulder"
+    "signature": "shoulder-to-shoulder",
+    "signature2": "bulwark"
   },
   "varga": {
     "name": "Pell Varga",
@@ -24,7 +26,8 @@
     "evade": 10,
     "side": "player",
     "nerve": 5,
-    "signature": "ghost-step"
+    "signature": "ghost-step",
+    "signature2": "sweep"
   },
   "haldane": {
     "name": "Ruth Haldane",
@@ -33,7 +36,8 @@
     "evade": 0,
     "side": "player",
     "nerve": 5,
-    "signature": "hot-patch"
+    "signature": "hot-patch",
+    "signature2": "field-weld"
   },
   "hallen": {
     "name": "Maj. Teodric Hallen",
@@ -42,7 +46,8 @@
     "evade": 5,
     "side": "hostile",
     "nerve": 8,
-    "signature": "drill-tempo"
+    "signature": "drill-tempo",
+    "signature2": null
   },
   "dir-1": {
     "name": "Directorate pilot",
@@ -51,7 +56,8 @@
     "evade": 0,
     "side": "hostile",
     "nerve": 6,
-    "signature": null
+    "signature": null,
+    "signature2": null
   },
   "dir-2": {
     "name": "Directorate pilot",
@@ -60,7 +66,8 @@
     "evade": 0,
     "side": "hostile",
     "nerve": 6,
-    "signature": null
+    "signature": null,
+    "signature2": null
   },
   "dir-3": {
     "name": "Directorate pilot",
@@ -69,7 +76,8 @@
     "evade": 0,
     "side": "hostile",
     "nerve": 6,
-    "signature": null
+    "signature": null,
+    "signature2": null
   },
   "dir-4": {
     "name": "Directorate pilot",
@@ -78,7 +86,8 @@
     "evade": 0,
     "side": "hostile",
     "nerve": 6,
-    "signature": null
+    "signature": null,
+    "signature2": null
   },
   "dir-5": {
     "name": "Directorate pilot",
@@ -87,6 +96,7 @@
     "evade": 0,
     "side": "hostile",
     "nerve": 6,
-    "signature": null
+    "signature": null,
+    "signature2": null
   }
 }

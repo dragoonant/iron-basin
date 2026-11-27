@@ -615,6 +615,31 @@
       "name": "Swing the bridge",
       "dp": 2,
       "kind": "field"
+    },
+    "rally": {
+      "name": "Rally",
+      "dp": 1,
+      "nerve": 4,
+      "kind": "signature",
+      "nerveGift": 2
+    },
+    "bulwark": {
+      "name": "Bulwark",
+      "dp": 1,
+      "nerve": 4,
+      "kind": "signature"
+    },
+    "sweep": {
+      "name": "Sweep",
+      "dp": 1,
+      "nerve": 4,
+      "kind": "signature"
+    },
+    "field-weld": {
+      "name": "Field weld",
+      "dp": 2,
+      "nerve": 4,
+      "kind": "signature"
     }
   }
 }

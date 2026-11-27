@@ -1,14 +1,24 @@
 // Between battles: the roster, the parts inventory and credits (SAL-1, HGR-1..4). Pure functions over plain JSON.
 import { arm, body, legs, MISSION_ORDER, MISSIONS, pack, RULES, weapon } from './data';
 import { maneuversOf, maxHp, modes, stats, weapons } from './query';
-import { PARTS } from './data';
+import { PARTS, pilot as pilotDef } from './data';
 import { makeUnit, type Deploy } from './step';
 import type { BattleState, Build, Paint, PaintSlot, PartSlot, SalvageItem, Unit } from './types';
 
 export type ItemKind = 'body' | 'arm' | 'legs' | 'pack' | 'weapon';
 export interface Item { uid: string; kind: ItemKind; id: string; hp: number; paint: Paint }
 export interface RosterWalker { pilot: string; build: Build; hp: Record<PartSlot, number>; paint: Record<PaintSlot, Paint> }
-export interface Campaign { v: 1; credits: number; roster: RosterWalker[]; inventory: Item[]; mission: number; nextUid: number; log: string[] }
+export interface Campaign { v: 1; credits: number; roster: RosterWalker[]; inventory: Item[]; mission: number; nextUid: number; log: string[]; /** PLV-1: experience by pilot. */ xp?: Record<string, number> }
+
+/** PLV-2: level 1, plus one for each threshold reached. */
+export const levelOf = (xp: number): number => 1 + RULES.levels.thresholds.filter((t) => xp >= t).length;
+/** PLV-5: what the hangar shows for a pilot. */
+export function pilotRecord(c: Campaign, id: string): { xp: number; level: number; next: number | null; signatures: string[] } {
+  const xp = c.xp?.[id] ?? 0, level = levelOf(xp);
+  const p = pilotDef(id);
+  const sigs = [p.signature, level >= 2 ? p.signature2 : null].filter((x): x is string => !!x).map((m) => PARTS.maneuvers[m]?.name ?? m);
+  return { xp, level, next: RULES.levels.thresholds.find((t) => t > xp) ?? null, signatures: sigs };
+}
 
 export { MISSION_ORDER };
 /** The contract the campaign plays next (the last one again once the list runs out). */
@@ -34,7 +44,7 @@ export function deployFrom(c: Campaign): Deploy[] {
   const starts = m.units.filter((u) => u.side === 'player');
   return c.roster.filter((r) => r.hp.body > 0).map((r, i) => {
     const st = starts.find((u) => u.pilot === r.pilot) ?? starts[i % starts.length]!;
-    return { id: r.pilot, pilot: r.pilot, side: 'player' as const, x: st.x, y: st.y, facing: st.facing, build: { ...r.build }, hp: { ...r.hp }, paint: { ...r.paint } };
+    return { id: r.pilot, pilot: r.pilot, side: 'player' as const, x: st.x, y: st.y, facing: st.facing, level: levelOf(c.xp?.[r.pilot] ?? 0), build: { ...r.build }, hp: { ...r.hp }, paint: { ...r.paint } };
   });
 }
 
@@ -44,9 +54,15 @@ const salvageKind = (s: SalvageItem): ItemKind => s.kind;
 export function applyResult(c0: Campaign, s: BattleState): Campaign {
   const c: Campaign = JSON.parse(JSON.stringify(c0));
   if (!s.result) return c;
+  const won = s.result.winner === 'player';
+  c.xp = { ...(c.xp ?? {}) };
   for (const r of c.roster) {
     const u = s.units.find((x) => x.pilot === r.pilot);
-    if (u) r.hp = { ...u.hp, body: u.alive ? u.hp.body : 0 };
+    if (!u) continue;
+    r.hp = { ...u.hp, body: u.alive ? u.hp.body : 0 };
+    // PLV-1: surviving, kills and the win.
+    const L = RULES.levels;
+    c.xp[r.pilot] = (c.xp[r.pilot] ?? 0) + (u.alive ? L.survive : 0) + (u.kills ?? 0) * L.kill + (won ? L.win : 0);
   }
   if (s.result.winner === 'player') {
     for (const it of s.result.salvage) c.inventory.push({ uid: `i${c.nextUid++}`, kind: salvageKind(it), id: it.id, hp: it.hp, paint: it.paint });

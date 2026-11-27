@@ -6,7 +6,7 @@
 |---|---|---|
 | 6b the canal | LCK-1..8 | landed 2026-11-27 |
 | 6c night and fog | FOG-1..8 | landed 2026-11-27 |
-| 6d pilot levels | PLV-1..5 | |
+| 6d pilot levels | PLV-1..5 | landed 2026-11-27 |
 
 ## 1. The canal (LCK)
 - **LCK-1** **Deep water** (terrain `deep`) cannot be entered (`impassable` in `rules.json`): no walk, Dash, Tow or push ends there. It does not block line of sight.
@@ -29,6 +29,18 @@ Only a mission with `night: true` has fog. In daylight (Marrow Yard) every walke
 - **FOG-7** **What a side knows**: `view(state, side)` leaves out enemy walkers the side does not see. The state keeps each side's **intel**: the last place it saw each enemy walker (at the start, where the briefing put them). The AI may read its own side's intel.
 - **FOG-8** **Ambush**: a walk is planned on what the side sees, so it may pass or end on an enemy walker it cannot see. It stops on the last free tile before that walker, which is then seen. A tow whose tile holds an unseen walker does nothing, and its drive is spent.
 
+## 3. Pilot levels (PLV), slice 6d
+Campaign-wide, not only on the Kerrow Locks.
+- **PLV-1** **Experience**: after a battle, each pilot who took part gains `levels.survive` if its walker still stands, `levels.kill` for each enemy walker it destroyed, and `levels.win` if the contract was won.
+- **PLV-2** **Levels**: a pilot is level 1, plus one for each of `levels.thresholds` its experience has reached.
+- **PLV-3** A pilot starts each battle with its `nerve` plus one per level above 1, capped at `nerve.max`.
+- **PLV-4** **Second signatures**: from level 2 a pilot also has its `signature2`, once per battle and Steady only, like the first (NRV-5), with its own use:
+  - **Rally** (Marlow): every ally in her line of sight gains `nerveGift` nerve.
+  - **Bulwark** (Okonjo): Brace and Plant at once (MAN-5), and +1 reserve when she stands down.
+  - **Sweep** (Varga, a working sensor mast): Mark (MAN-9) every enemy she sees in sensor range.
+  - **Field weld** (Haldane, a working repair crane, 2 DP): a lost arm of an adjacent ally, or her own, is back to `levels.weldHp` HP. The one way to restore a lost part in battle.
+- **PLV-5** The hangar shows each pilot's level, experience, the next threshold and its signatures; the debrief shows what each pilot earned.
+
 ## Rulings
 - RULING: LCK-2 | the bridge cannot swing with a walker on it | a walker dumped into deep water would need a drowning rule this game does not want.
 - RULING: LCK-4 | indirect fire cannot break the gate | ATK-9 already keeps mortars off objects; blowing the gate is a choice made at close range.
@@ -36,4 +48,6 @@ Only a mission with `night: true` has fog. In daylight (Marrow Yard) every walke
 - RULING: FOG-1 | a sensor mast sees to its sensor range at night | the mast is the night scout's job; it also gives the Directorate's spotter a reason to stand forward.
 - RULING: FOG-5 | the flash lasts until the side that saw it ends its phase | a return shot fired in your phase shows you the shooter for the rest of that phase; a shot fired in theirs, for the whole of yours.
 - RULING: FOG-8 | orders are legal on what the side knows | otherwise an order planned from the board would be refused by something the player could not see.
+- RULING: PLV-1 | a pilot whose walker was destroyed still earns its kills and the win | ejecting is part of the job; losing the experience too would punish a bad roll twice.
+- RULING: PLV-4 | Field weld restores 25 HP, not the whole arm | it must not replace the hangar's repairs; one usable arm for the rest of the battle.
 - RULING: FLD-5 | a toppling stack does not turn deep water into rubble | otherwise a topple could build a crossing.

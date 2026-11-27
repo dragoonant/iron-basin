@@ -436,6 +436,8 @@ export function maneuversOf(u: Unit): ManeuverOption[] {
   if (!u.status.packOut) for (const id of pack(u.build.pack).maneuvers ?? []) add(id, null);
   const sig = pilot(u.pilot).signature;
   if (sig) add(sig, null);
+  const sig2 = pilot(u.pilot).signature2;
+  if (sig2 && (u.level ?? 1) >= 2) add(sig2, null); // PLV-4
   for (const id of PARTS.universal) {
     const def = maneuver(id);
     if (def?.needs === 'emptyHand' || def?.needs === 'emptyHand+rubble') {
@@ -477,7 +479,7 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
   if (d.kind === 'trait') return 'always on';
   if (u.done) return 'stood down';
   if (d.kind === 'signature') { // NRV-5: Steady is checked before the cost
-    if (u.sigUsed) return 'once per battle';
+    if (id === pilot(u.pilot).signature2 ? u.sig2Used : u.sigUsed) return 'once per battle';
     if (!steady(u)) return `needs Steady (${RULES.nerve.steady} nerve)`;
   }
   if (u.drive < d.dp) return `needs ${d.dp} drive`;
@@ -508,6 +510,12 @@ export function maneuverBlock(s: BattleState, u: Unit, id: string, slot: WeaponS
       if (!u.fired.length) return 'only after a fire order this phase';
       if (u.status.grabbedBy) return 'held by a grab';
       return tile && knownReach(s, u, stats(s, u).move).some((r) => r.x === tile.x && r.y === tile.y && (r.x !== u.x || r.y !== u.y)) ? null : 'out of reach';
+    }
+    case 'sweep': return pack(u.build.pack).kind === 'sensor' && !u.status.packOut ? null : 'needs a working sensor mast';
+    case 'field-weld': {
+      if (pack(u.build.pack).kind !== 'repair' || u.status.packOut) return 'needs a working repair crane';
+      if (!target || !target.alive || target.side !== u.side || dist(u, target) > 1) return 'weld an adjacent ally (or yourself)';
+      return target.hp.armL <= 0 || target.hp.armR <= 0 ? null : 'no lost arm to weld';
     }
     case 'hot-patch': {
       if (pack(u.build.pack).kind !== 'repair' || u.status.packOut || u.charges <= 0) return 'needs a working repair crane with a charge';

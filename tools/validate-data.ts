@@ -63,6 +63,11 @@ for (const [bid, b] of Object.entries(PARTS.bodies)) if (!int(b.drive, 1, 8)) er
 const sigs = new Map<string, string>();
 for (const [pid, p] of Object.entries(PILOTS)) {
   if (!int(p.nerve, 0, RULES.nerve.max)) errs.push(`pilot ${pid} nerve ${p.nerve}`);
+  if (p.signature2) {
+    if (PARTS.maneuvers[p.signature2]?.kind !== 'signature') errs.push(`pilot ${pid} signature2 ${p.signature2} is not a signature maneuver`);
+    if (sigs.has(p.signature2)) errs.push(`signature ${p.signature2} shared by ${sigs.get(p.signature2)} and ${pid}`);
+    sigs.set(p.signature2, pid);
+  }
   if (p.signature) {
     if (PARTS.maneuvers[p.signature]?.kind !== 'signature') errs.push(`pilot ${pid} signature ${p.signature} is not a signature maneuver`);
     if (sigs.has(p.signature)) errs.push(`signature ${p.signature} shared by ${sigs.get(p.signature)} and ${pid}`);
@@ -72,6 +77,7 @@ for (const [pid, p] of Object.entries(PILOTS)) {
 const n = RULES.nerve;
 if (!(n.shaken < n.steady && n.steady <= n.max)) errs.push('nerve bands out of order');
 if (RULES.drive.reserveCap > RULES.drive.signatureReserveCap) errs.push('reserve cap above the signature cap');
+if (RULES.levels.thresholds.some((t, i, a) => i > 0 && t <= a[i - 1]!)) errs.push('level thresholds must rise');
 if (!RULES.hitWeights.rear || RULES.hitWeights.rear.pack === undefined) errs.push('hit weights rear (with pack)');
 for (const m of Object.values(MISSIONS)) {
   const ch = (x: number, y: number): string | undefined => m.map[y]?.[x];
