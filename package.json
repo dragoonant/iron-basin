@@ -14,7 +14,8 @@
     "bench:ai": "tsx tools/bench-ai.ts",
     "e2e": "playwright test",
     "check:look": "node tools/check-look.mjs",
-    "artifact": "node tools/make-artifact.mjs"
+    "artifact": "node tools/make-artifact.mjs",
+    "pages": "node tools/deploy-pages.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

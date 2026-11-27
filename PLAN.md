@@ -43,7 +43,7 @@ An original turn-based walker-tactics game for the browser by **evilgouki**: a h
 | Q19 | Fog of war only in night contracts (Kerrow on); Marrow Yard stays daylight with everything seen (Q3) |
 | Q20 | Pilot levels: XP from battles, kills and won contracts; each level +1 starting nerve; level 2 unlocks a second signature |
 | Q21 | Contract 2 uses no new generated art or voice: the night look is lighting in code; its briefing lines are text until the EVILAEGIS voice recast (D10) |
-| Q11 | Publish the playable as a private claude.ai Artifact (KB rule 28) and on Pages once the repo exists |
+| Q11 | Publish the playable as a private claude.ai Artifact (KB rule 28) and on GitHub Pages: https://dragoonant.github.io/iron-basin/, served from the `gh-pages` branch, published by `npm run pages` (owner asked for a Pages link, 2026-11-27) |
 
 ## Milestones
 | M | What | State |

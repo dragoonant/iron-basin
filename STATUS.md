@@ -1,6 +1,6 @@
 # IRON BASIN — STATUS (rewrite, never append)
 
-**2026-11-27: contract 2, the Kerrow Locks, is in (M6 done).** **2026-11-26: combat v2 is in (M5 done).** **2026-11-24: level 1 is playable end to end.** Title → voiced briefing → Marrow Yard battle → debrief with salvage → hangar → contract 2 stub. Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR (KB rule 28; republished 2026-11-26 with all of combat v2). Home: `dragoonant/iron-basin` (PLAN D2).
+**2026-11-27: contract 2, the Kerrow Locks, is in (M6 done).** **2026-11-26: combat v2 is in (M5 done).** **2026-11-24: level 1 is playable end to end.** Title → voiced briefing → Marrow Yard battle → debrief with salvage → hangar → contract 2 stub. **Playtest on GitHub Pages: https://dragoonant.github.io/iron-basin/** (public; `npm run pages` republishes from the current commit). Private Artifact: https://claude.ai/artifact/FnZ6XXpAdyCX4HgsU2pRFR (KB rule 28; republished 2026-11-26 with all of combat v2). Home: `dragoonant/iron-basin` (PLAN D2).
 
 ## What is in
 | Area | State | Where |
@@ -19,7 +19,7 @@
 | Audio | 5 music tracks, 28 sounds, 25 voice lines (ElevenLabs); not verified by ear | `public/audio/`, `docs/spec/60-audio.md`, `sounds.html` |
 
 ## Gates (all green 2026-11-27)
-`npm run typecheck` | `npm test` (124) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (13: smoke, full contract into contract 2's briefing, fire panel, drive and facing, wagon shunt, Kerrow and the winch, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact`
+`npm run typecheck` | `npm test` (124) | `npm run build` | `npm run validate:data` | `npm run sim` | `npm run action-fuzz` | `npm run bench:ai` | `npm run e2e` (13: smoke, full contract into contract 2's briefing, fire panel, drive and facing, wagon shunt, Kerrow and the winch, rules 22/24/25/27, sound) | `npm run check:look` | `npm run artifact` | `npm run pages`
 
 ## Known gaps, next
 - **Contract 2, M6 done (2026-11-27).** The Kerrow Locks: a night canal fight (`docs/contract-2.md`, spec 20). There are three ways across: a swing bridge worked from winches, a weir, and the lock gate, which floods the low quays when it is blown and costs the gate bonus. Lamps light the quays and can be shot out. Night sight is 5 tiles (a sensor mast sees to 7), with fog of war: unseen enemies are hidden and marked "?" where last seen, a shooter shows in its muzzle flash, Flare is a new mortar mode, and a walk into a hidden enemy stops short (ambush). Pilots level up (3/7/12 XP): +1 starting nerve a level and a second signature at level 2 (Rally, Bulwark, Sweep, Field weld). Missions are data; the campaign runs Marrow Yard, then the Kerrow Locks, then a "campaign complete" page. Kerrow AI vs AI 30.5% (`80-sim.md`). The six Kerrow briefing lines are text until the EVILAEGIS recast (PLAN Q21, `HANDOFF-GPU.md`).
