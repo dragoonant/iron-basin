@@ -1,0 +1,30 @@
+{
+  "portraits": {
+    "marlow": "art/portraits/marlow.jpg",
+    "okonjo": "art/portraits/okonjo.jpg",
+    "varga": "art/portraits/varga.jpg",
+    "haldane": "art/portraits/haldane.jpg",
+    "aske": "art/portraits/aske.jpg",
+    "hallen": "art/portraits/hallen.jpg"
+  },
+  "backdrops": {
+    "region-map": "art/region-map.jpg",
+    "hangar": "art/hangar.jpg",
+    "debrief": "art/debrief.jpg",
+    "defeat": "art/defeat.jpg",
+    "title": "art/title.jpg"
+  },
+  "sky": "art/sky.jpg",
+  "tex": {
+    "wet-concrete": "art/tex/wet-concrete.jpg",
+    "ballast": "art/tex/ballast.jpg",
+    "mud": "art/tex/mud.jpg",
+    "snow-mud": "art/tex/snow-mud.jpg",
+    "corrugated-rust": "art/tex/corrugated-rust.jpg",
+    "container": "art/tex/container.jpg",
+    "brick": "art/tex/brick.jpg",
+    "silo-concrete": "art/tex/silo-concrete.jpg",
+    "paint-slate": "art/tex/paint-slate.jpg",
+    "paint-camo": "art/tex/paint-camo.jpg"
+  }
+}

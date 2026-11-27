@@ -1,0 +1,531 @@
+{
+  "music": {
+    "hangar": {
+      "file": "audio/music/hangar.mp3",
+      "gain": 0.403,
+      "loop": true,
+      "seconds": 90.12
+    },
+    "briefing": {
+      "file": "audio/music/briefing.mp3",
+      "gain": 0.684,
+      "loop": true,
+      "seconds": 60.08
+    },
+    "battle": {
+      "file": "audio/music/battle.mp3",
+      "gain": 0.548,
+      "loop": true,
+      "seconds": 120.03
+    },
+    "victory": {
+      "file": "audio/music/victory.mp3",
+      "gain": 0.714,
+      "loop": false,
+      "seconds": 12.07
+    },
+    "defeat": {
+      "file": "audio/music/defeat.mp3",
+      "gain": 0.646,
+      "loop": false,
+      "seconds": 12.07
+    }
+  },
+  "sfx": {
+    "step-heavy": [
+      {
+        "file": "audio/sfx/step-heavy-1.mp3",
+        "gain": 3.981,
+        "seconds": 1.65
+      },
+      {
+        "file": "audio/sfx/step-heavy-2.mp3",
+        "gain": 3.981,
+        "seconds": 1.65
+      }
+    ],
+    "step-light": [
+      {
+        "file": "audio/sfx/step-light-1.mp3",
+        "gain": 0.901,
+        "seconds": 1.04
+      },
+      {
+        "file": "audio/sfx/step-light-2.mp3",
+        "gain": 1.055,
+        "seconds": 1.04
+      }
+    ],
+    "servo": [
+      {
+        "file": "audio/sfx/servo-1.mp3",
+        "gain": 0.675,
+        "seconds": 1.41
+      },
+      {
+        "file": "audio/sfx/servo-2.mp3",
+        "gain": 0.634,
+        "seconds": 1.41
+      }
+    ],
+    "autocannon": [
+      {
+        "file": "audio/sfx/autocannon-1.mp3",
+        "gain": 0.567,
+        "seconds": 2.04
+      },
+      {
+        "file": "audio/sfx/autocannon-2.mp3",
+        "gain": 0.464,
+        "seconds": 2.04
+      }
+    ],
+    "carbine": [
+      {
+        "file": "audio/sfx/carbine-1.mp3",
+        "gain": 0.953,
+        "seconds": 1.52
+      },
+      {
+        "file": "audio/sfx/carbine-2.mp3",
+        "gain": 0.712,
+        "seconds": 1.52
+      }
+    ],
+    "rifle": [
+      {
+        "file": "audio/sfx/rifle-1.mp3",
+        "gain": 0.78,
+        "seconds": 2.51
+      },
+      {
+        "file": "audio/sfx/rifle-2.mp3",
+        "gain": 3.981,
+        "seconds": 2.51
+      }
+    ],
+    "mortar-launch": [
+      {
+        "file": "audio/sfx/mortar-launch-1.mp3",
+        "gain": 0.905,
+        "seconds": 1.52
+      },
+      {
+        "file": "audio/sfx/mortar-launch-2.mp3",
+        "gain": 1.035,
+        "seconds": 1.52
+      }
+    ],
+    "mortar-impact": [
+      {
+        "file": "audio/sfx/mortar-impact-1.mp3",
+        "gain": 0.462,
+        "seconds": 3.03
+      },
+      {
+        "file": "audio/sfx/mortar-impact-2.mp3",
+        "gain": 0.485,
+        "seconds": 3.03
+      }
+    ],
+    "missile-launch": [
+      {
+        "file": "audio/sfx/missile-launch-1.mp3",
+        "gain": 0.661,
+        "seconds": 2.04
+      },
+      {
+        "file": "audio/sfx/missile-launch-2.mp3",
+        "gain": 0.877,
+        "seconds": 2.04
+      }
+    ],
+    "missile-impact": [
+      {
+        "file": "audio/sfx/missile-impact-1.mp3",
+        "gain": 0.411,
+        "seconds": 2.51
+      },
+      {
+        "file": "audio/sfx/missile-impact-2.mp3",
+        "gain": 0.391,
+        "seconds": 2.51
+      }
+    ],
+    "ram-hit": [
+      {
+        "file": "audio/sfx/ram-hit-1.mp3",
+        "gain": 1.687,
+        "seconds": 1.65
+      },
+      {
+        "file": "audio/sfx/ram-hit-2.mp3",
+        "gain": 1.313,
+        "seconds": 1.65
+      }
+    ],
+    "armor-hit": [
+      {
+        "file": "audio/sfx/armor-hit-1.mp3",
+        "gain": 1.801,
+        "seconds": 1.65
+      },
+      {
+        "file": "audio/sfx/armor-hit-2.mp3",
+        "gain": 0.934,
+        "seconds": 1.65
+      }
+    ],
+    "armor-ping": [
+      {
+        "file": "audio/sfx/armor-ping-1.mp3",
+        "gain": 0.782,
+        "seconds": 1.23
+      },
+      {
+        "file": "audio/sfx/armor-ping-2.mp3",
+        "gain": 2.204,
+        "seconds": 1.23
+      }
+    ],
+    "part-tear": [
+      {
+        "file": "audio/sfx/part-tear-1.mp3",
+        "gain": 0.836,
+        "seconds": 2.51
+      },
+      {
+        "file": "audio/sfx/part-tear-2.mp3",
+        "gain": 0.792,
+        "seconds": 2.51
+      }
+    ],
+    "explode-walker": [
+      {
+        "file": "audio/sfx/explode-walker-1.mp3",
+        "gain": 0.472,
+        "seconds": 4.05
+      },
+      {
+        "file": "audio/sfx/explode-walker-2.mp3",
+        "gain": 0.5,
+        "seconds": 4.05
+      }
+    ],
+    "eject": [
+      {
+        "file": "audio/sfx/eject-1.mp3",
+        "gain": 0.453,
+        "seconds": 2.04
+      },
+      {
+        "file": "audio/sfx/eject-2.mp3",
+        "gain": 0.431,
+        "seconds": 2.04
+      }
+    ],
+    "repair": [
+      {
+        "file": "audio/sfx/repair-1.mp3",
+        "gain": 0.827,
+        "seconds": 3.03
+      },
+      {
+        "file": "audio/sfx/repair-2.mp3",
+        "gain": 0.642,
+        "seconds": 3.03
+      }
+    ],
+    "select": [
+      {
+        "file": "audio/sfx/select-1.mp3",
+        "gain": 0.341,
+        "seconds": 0.63
+      },
+      {
+        "file": "audio/sfx/select-2.mp3",
+        "gain": 0.401,
+        "seconds": 0.63
+      }
+    ],
+    "confirm": [
+      {
+        "file": "audio/sfx/confirm-1.mp3",
+        "gain": 3.981,
+        "seconds": 0.84
+      },
+      {
+        "file": "audio/sfx/confirm-2.mp3",
+        "gain": 1.285,
+        "seconds": 0.84
+      }
+    ],
+    "cancel": [
+      {
+        "file": "audio/sfx/cancel-1.mp3",
+        "gain": 3.981,
+        "seconds": 0.52
+      },
+      {
+        "file": "audio/sfx/cancel-2.mp3",
+        "gain": 3.981,
+        "seconds": 0.52
+      }
+    ],
+    "ui-tick": [
+      {
+        "file": "audio/sfx/ui-tick-1.mp3",
+        "gain": 3.981,
+        "seconds": 0.52
+      },
+      {
+        "file": "audio/sfx/ui-tick-2.mp3",
+        "gain": 1.09,
+        "seconds": 0.52
+      }
+    ],
+    "turn-player": [
+      {
+        "file": "audio/sfx/turn-player-1.mp3",
+        "gain": 0.73,
+        "seconds": 1.52
+      }
+    ],
+    "turn-enemy": [
+      {
+        "file": "audio/sfx/turn-enemy-1.mp3",
+        "gain": 0.621,
+        "seconds": 2.04
+      }
+    ],
+    "container-crash": [
+      {
+        "file": "audio/sfx/container-crash-1.mp3",
+        "gain": 0.513,
+        "seconds": 3.03
+      },
+      {
+        "file": "audio/sfx/container-crash-2.mp3",
+        "gain": 0.5,
+        "seconds": 3.03
+      }
+    ],
+    "salvage": [
+      {
+        "file": "audio/sfx/salvage-1.mp3",
+        "gain": 0.802,
+        "seconds": 1.52
+      },
+      {
+        "file": "audio/sfx/salvage-2.mp3",
+        "gain": 0.784,
+        "seconds": 1.52
+      }
+    ],
+    "rain-loop": [
+      {
+        "file": "audio/sfx/rain-loop-1.mp3",
+        "gain": 0.444,
+        "seconds": 20.04
+      }
+    ],
+    "yard-loop": [
+      {
+        "file": "audio/sfx/yard-loop-1.mp3",
+        "gain": 1.755,
+        "seconds": 20.04
+      }
+    ],
+    "hangar-loop": [
+      {
+        "file": "audio/sfx/hangar-loop-1.mp3",
+        "gain": 1.207,
+        "seconds": 20.04
+      }
+    ]
+  },
+  "voice": {
+    "brief-1": {
+      "file": "audio/voice/brief-1.mp3",
+      "gain": 1.244,
+      "seconds": 8.67,
+      "speaker": "AKSE",
+      "text": "Captain. The Directorate pushed a recon group into Marrow Yard before dawn. Five walkers, dug in among the freight lines."
+    },
+    "brief-2": {
+      "file": "audio/voice/brief-2.mp3",
+      "gain": 1.313,
+      "seconds": 7.89,
+      "speaker": "AKSE",
+      "text": "That yard is the only rail link into Kerrow. The Concord wants it open before the supply train arrives at noon."
+    },
+    "brief-3": {
+      "file": "audio/voice/brief-3.mp3",
+      "gain": 1.371,
+      "seconds": 6.09,
+      "speaker": "AKSE",
+      "text": "Clear every Directorate walker from the yard. Their commander will be sitting by the grain silos."
+    },
+    "brief-4": {
+      "file": "audio/voice/brief-4.mp3",
+      "gain": 1.06,
+      "seconds": 5.2,
+      "speaker": "MARLOW",
+      "text": "Understood. Varga takes the left track. Okonjo and Haldane come up the middle with me."
+    },
+    "brief-5": {
+      "file": "audio/voice/brief-5.mp3",
+      "gain": 1.387,
+      "seconds": 7.13,
+      "speaker": "AKSE",
+      "text": "One more thing. Whatever you strip off their machines is yours. Salvage rights are in the contract."
+    },
+    "brief-6": {
+      "file": "audio/voice/brief-6.mp3",
+      "gain": 1.09,
+      "seconds": 2.59,
+      "speaker": "MARLOW",
+      "text": "Then let's go earn it. Lanterns, move out."
+    },
+    "intercept": {
+      "file": "audio/voice/intercept.mp3",
+      "gain": 1.111,
+      "seconds": 4,
+      "speaker": "HALLEN",
+      "text": "Contract dogs. Hold the silos and let them come to us."
+    },
+    "debrief-win": {
+      "file": "audio/voice/debrief-win.mp3",
+      "gain": 1.464,
+      "seconds": 7.6,
+      "speaker": "AKSE",
+      "text": "The yard is ours, and the train comes through at noon. Good work, Captain. Your salvage is on the flatbeds."
+    },
+    "debrief-lose": {
+      "file": "audio/voice/debrief-lose.mp3",
+      "gain": 1.28,
+      "seconds": 3.58,
+      "speaker": "AKSE",
+      "text": "Pull back, Captain. We'll find another way into Kerrow."
+    },
+    "marlow-select": {
+      "file": "audio/voice/marlow-select.mp3",
+      "gain": 1.076,
+      "seconds": 1.1,
+      "speaker": "MARLOW",
+      "text": "Marlow here."
+    },
+    "marlow-attack": {
+      "file": "audio/voice/marlow-attack.mp3",
+      "gain": 1.169,
+      "seconds": 1.1,
+      "speaker": "MARLOW",
+      "text": "Engaging."
+    },
+    "marlow-hit": {
+      "file": "audio/voice/marlow-hit.mp3",
+      "gain": 1.293,
+      "seconds": 1.62,
+      "speaker": "MARLOW",
+      "text": "Taking hits, still up."
+    },
+    "marlow-down": {
+      "file": "audio/voice/marlow-down.mp3",
+      "gain": 0.974,
+      "seconds": 1.15,
+      "speaker": "MARLOW",
+      "text": "Punching out!"
+    },
+    "okonjo-select": {
+      "file": "audio/voice/okonjo-select.mp3",
+      "gain": 1.381,
+      "seconds": 1.7,
+      "speaker": "OKONJO",
+      "text": "Okonjo. Go ahead."
+    },
+    "okonjo-attack": {
+      "file": "audio/voice/okonjo-attack.mp3",
+      "gain": 1.498,
+      "seconds": 1.15,
+      "speaker": "OKONJO",
+      "text": "Firing now."
+    },
+    "okonjo-hit": {
+      "file": "audio/voice/okonjo-hit.mp3",
+      "gain": 1.47,
+      "seconds": 1.28,
+      "speaker": "OKONJO",
+      "text": "Armour is going."
+    },
+    "okonjo-down": {
+      "file": "audio/voice/okonjo-down.mp3",
+      "gain": 1.08,
+      "seconds": 1.75,
+      "speaker": "OKONJO",
+      "text": "Eject, eject!"
+    },
+    "varga-select": {
+      "file": "audio/voice/varga-select.mp3",
+      "gain": 1.405,
+      "seconds": 1.15,
+      "speaker": "VARGA",
+      "text": "Varga, ready."
+    },
+    "varga-attack": {
+      "file": "audio/voice/varga-attack.mp3",
+      "gain": 1.819,
+      "seconds": 1.02,
+      "speaker": "VARGA",
+      "text": "Say goodnight!"
+    },
+    "varga-hit": {
+      "file": "audio/voice/varga-hit.mp3",
+      "gain": 1.512,
+      "seconds": 1.15,
+      "speaker": "VARGA",
+      "text": "That one stung!"
+    },
+    "varga-down": {
+      "file": "audio/voice/varga-down.mp3",
+      "gain": 1.104,
+      "seconds": 1.67,
+      "speaker": "VARGA",
+      "text": "I am out, I am out!"
+    },
+    "haldane-select": {
+      "file": "audio/voice/haldane-select.mp3",
+      "gain": 1.196,
+      "seconds": 1.75,
+      "speaker": "HALDANE",
+      "text": "Haldane. Make it quick."
+    },
+    "haldane-attack": {
+      "file": "audio/voice/haldane-attack.mp3",
+      "gain": 1.242,
+      "seconds": 0.97,
+      "speaker": "HALDANE",
+      "text": "Here is yours."
+    },
+    "haldane-hit": {
+      "file": "audio/voice/haldane-hit.mp3",
+      "gain": 1.231,
+      "seconds": 1.7,
+      "speaker": "HALDANE",
+      "text": "Rude. Very rude."
+    },
+    "haldane-down": {
+      "file": "audio/voice/haldane-down.mp3",
+      "gain": 1.048,
+      "seconds": 1.28,
+      "speaker": "HALDANE",
+      "text": "Bailing, bailing!"
+    },
+    "hallen-down": {
+      "file": "audio/voice/hallen-down.mp3",
+      "gain": 0.856,
+      "seconds": 1.57,
+      "speaker": "HALLEN",
+      "text": "No... fall back!"
+    }
+  }
+}
